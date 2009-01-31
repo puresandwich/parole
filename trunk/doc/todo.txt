@@ -1,0 +1,173 @@
+--=== Todo for 0.1.0 ===--
+
+Bugs:
+N/A
+
+Features:
+[x] Logging organization
+[x] Config sys
+[x] sdl init, shutdown
+[x] exceptions
+[x] game loop
+[x] rl-centric input polling
+
+Test App:
+- test logging, config, sdl startup/shutdown, input
+
+0.1.0 Completed on: 2/26/06
+----------------------------------------------------
+
+--=== Todo for 0.2.0 ===--
+
+Bugs:
+[ ] Needs more documentation.
+
+Features:
+[x] Display module
+[x] Display properties controled by config system
+[x] Flip display in game loop
+[x] FPS calculation
+[x] Resource management
+[x] Shaders!
+    The display is essentially a scenegraph of shaders. A shader is a collection
+    of shaders, update functions, and a draw method. A pass is a shader with a 
+    concrete draw method, whereas a plain shader just draws all the shaders 
+    contained in it. Shaders have various properties - pos, size, alpha. Passes 
+    can have additional properties depending on the nature of the pass.
+[x] Some built-in shaders, passes, blendfuncs, update functions
+    [x] ColorField
+    [x] Texture
+[x] Unit testing layout
+[x] Readme, setup.y, changelog, etc. New distribution layout.
+
+Test App:
+Some sort of simple toy game controlled by keyboard.
+
+0.2.0 Completed on: 8/11/06
+----------------------------------------------------
+
+--=== Todo for 0.3.0 ===--
+
+Bugs:
+[.] More documentation.
+
+Features:
+[x] Make game code a part of the resource system
+[x] Forwarding PyGame events.
+[x] Reimplement shaders as sprite subtype.
+[x] resource.getFont()
+[x] Module unloading
+[x] resource.getShaderClass() -- someshadermodule.shaderClass
+[x] Bindable commands. Pollable command queue.
+[x] Migrate to Vinay Sajip's Python Config system
+[x] Maps
+[.] Be more consistent about config change notification?
+[x] Fix Zip-file resources
+[x] Bundle decorator module
+
+Test App:
+Same toy as for 0.2.0, but with console and command-mapped input.
+Unit tests.
+
+0.3.0 Completed on: 8/26/07
+----------------------------------------------------
+
+--=== Todo for 0.4.0 ===--
+
+Bugs:
+[ ] More documentation.
+[x] Fix config notifications
+[ ] ScrollView needs to be sped up a bit for largish maps
+
+Features:
+[x] Console
+[x] Key-up vs key-down input
+[-] PASS: Mouse input
+[-] PASS: Shader filters - select pixels for inclusion.
+[x] An all-purpose text-shader: 
+[x]     base font/color/etc, startpos, optional word-wrap. 
+[x]     Text is split into "chunks" that are redrawn selectively
+[x]     interprets text for escaped commands for: font, forecolor, backcolor
+[x] ScrollView shader: scrollable view of sub shaders
+[x] Convert maps to more efficient ScrollView-based implementation
+[x]     Grid shader
+[x] Track pass position(s) in parent shader, allow multiple parents
+[x] Text input/editing inputhandlers and accompanying shaders: 
+[x]     line input  - ReadLine, ReadLineBox
+[-]     PASS: multiline input 
+[x] Frame shader: autosizing borders around contents (sub shaders)
+[x]     AsciiFrame
+[x]     TextureFrame
+[x] Some basic border shaders (horizontal and vertical bevel)
+[?] Simplify shader/pass system -- just shaders.
+[x] Sound resources (leave playback/mixing to pygame)
+[x] Resource exporting
+[x] Animation push/pop
+
+0.4.0 Completed on: 5/11/08
+----------------------------------------------------
+
+--=== Todo for 0.5.0 ===--
+This version fleshes out maps. Utility functions for map generation, field of
+view calculations, lighting, saving/loading, and on-screen message placement.
+
+Bugs:
+[ ] More documentation.
+[x] ScrollView needs to be sped up a bit for largish maps
+    - ScrollView is now significantly faster in cases where it has only one
+      pass (which is normal for maps, text, etc.).
+[ ] FOV has some performance problems, especially when remembering tiles. The
+    more tiles have been seen, the slower it gets to update FOV even in unrelated
+    parts of the map. Maybe ShaderGrid needs optimizing?
+[ ] Why does importing PyGame now cause malloc errors?
+
+Features:
+[x] Option to make map font square.
+[x] Map creation (Generators)
+[x]     MapObjectGenerator
+[x]     TemplateGenerator - v1. Just apply generators in legend to individual
+            tiles; no area generators, no scaling/tiling
+[x]     Template Generator - v2. Tiling.
+[x]     Cellular Automata Generator
+[x]     Perlin noise generator
+[ ] Map state saving/loading
+[ ]     Pickling shaders (without pickling Surfaces)
+[x] FOV
+[x]     Integrate MacDonald's code; Map2D.filedOfView wrapper
+[x]     Selective quadrant FOV
+[x]     Circular FOV
+[x]     Binding a MapFrame to a MapObject's field of view
+[x]     Ability for MapFrame to "remember" seen but no longer visible tiles
+[x]     Be selective about quadrants updated for MapFrame FOV
+[x] Tile highlighting and selecting
+[ ] LOS - testing and tracing
+[.] MapFrame message display/annotation system
+[x]     Annotation Basics
+[ ]     Simple customization of annotation appearance
+[x]     Annotations of tiles offscreen (should be better)
+[.] Lighting and LightSources
+[x]     Basics
+[ ]     LOS blockers moving through light
+[ ]     Some optimization of AsciiTile.applyLight() - a cache?
+[x] Upgrade to PyGame 1.8.1
+[x] Add psyco support.
+[x]     Check works with Stackless
+[x] Support generator for user frame function
+
+0.5.0 Completed on:
+----------------------------------------------------
+
+--=== Todo for 0.6.0 ===--
+This version introduces the sim module, which provides all the components of a
+discrete-event agent based simulation system (powered by SimPy), along with
+various utilities specifically useful for roguelike games.
+
+Bugs:
+
+Features:
+[ ] Agents and Events; SimPy integration?
+[ ] Saving/loading simulation state. generators a problem?
+[ ] Pathfinding
+[ ] More map creation
+[ ]     Template Generator - v3. Scaling.
+[ ]     Template Generator - v4. Area effects (including recursive).

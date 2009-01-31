@@ -1,0 +1,62 @@
+Parole Changelog
+****************
+
+--=== 0.3.0 ===--
+- Added input.peekKeyPresses()
+- Added resource.getObject() and rewrote resource.getShader() to use it.
+- Added docstring for base.startup()
+- base.startup() can take updateFunc as either a function object, or a string
+  naming a script resource which creates a callable updateFunc object.
+- Added start-parole.py, a general engine startup script.
+- Added some PGU-based shader passes.
+- Added a basic PGU-based console
+
+--=== 0.2.0 ===--
+
+Bugs:
+[ ] Needs more documentation.
+
+Features:
+[x] Display module
+[x] Display properties controled by config system
+[x] Flip display in game loop
+[x] FPS calculation
+[x] Resource management
+[x] Shaders!
+    The display is essentially a scenegraph of shaders. A shader is a collection
+    of shaders, update functions, and a draw method. A pass is a shader with a 
+    concrete draw method, whereas a plain shader just draws all the shaders 
+    contained in it. Shaders have various properties - pos, size, alpha. Passes 
+    can have additional properties depending on the nature of the pass.
+[x] Some built-in shaders, passes, blendfuncs, update functions
+    [x] ColorField
+    [x] Texture
+	[x] Text
+[x] Unit testing layout
+[x] Readme, setup.y, changelog, etc. New distribution layout.
+
+Test App:
+Some sort of simple toy game controlled by keyboard.
+
+0.2.0 Completed on: 8/11/06
+----------------------------------------------------
+
+--=== 0.1.0 ===--
+
+Bugs:
+N/A
+
+Features:
+[x] Logging organization
+[x] Config sys
+[x] sdl init, shutdown
+[x] exceptions
+[x] game loop
+[x] rl-centric input polling
+
+Test App:
+- test logging, config, sdl startup/shutdown, input
+
+0.1.0 Completed on: 2/26/06
+----------------------------------------------------
+

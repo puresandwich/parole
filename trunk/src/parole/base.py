@@ -1,0 +1,567 @@
+#Parole Artful Roguelike Engine
+#Copyright (C) 2006 Max Bane
+#
+#This program is free software; you can redistribute it and/or
+#modify it under the terms of the GNU General Public License
+#as published by the Free Software Foundation; either version 2
+#of the License, or (at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program; if not, write to the Free Software
+#Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+The L{Base} module provides the core functionality of the engine, providing
+facilities for loading other engine modules, reading and applying engine
+configurations, and for starting and stopping the main game loop, which
+performs the rendering and event-handling of each frame, and invokes a user
+callback implementing the game's frame-by-frame logic.
+"""
+
+import logging, sys, copy_reg
+import config
+import parole 
+from decorator import decorator
+
+# Version info
+developmentVersion = True
+version = (0, 5, 0) # (major, minor, revision)
+versionStr = '%s.%s.%s%s' % (version[0], version[1], version[2],
+        developmentVersion and '-dev' or '')
+
+# Set up the root logger
+logging.basicConfig(level=logging.DEBUG,
+    format='%(asctime)s [%(module)-10s] %(levelname)s: %(message)s',
+    datefmt='%H:%M:%S', filename="full.log")
+
+# The engine-wide configuration object
+conf = None
+
+__paroleShutdown = False
+__logFrameTime = False
+__printFrameTime = False
+
+#==============================================================================
+
+# Engine log output functions, one for each log level.
+debug = logging.debug
+info = logging.info
+warn = logging.warn
+error = logging.error
+
+#==============================================================================
+
+havePyGame = False
+
+try:
+    import pygame
+    havePyGame = True
+except:
+    warn('PyGame unavailable. Engine will fail to start.')
+
+#==============================================================================
+
+def panic(msg):
+    """
+    Prints the given message to standard output, logs it at level CRITICAL,
+    then instructs the current process to exit. Does not give Parole a chance
+    to shutdown properly.
+    
+    @param msg: The message string to print to standard output before ending
+    the process.
+    """
+
+    print msg
+    logging.critical(str(msg))
+    info('PANIC - Goodbye!')
+    raise SystemExit
+
+#==============================================================================
+    
+class ParoleError(Exception):
+    """
+    Base class for Parole-related exceptions.
+    """
+
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+        
+class ParoleShutdown(ParoleError):
+    """
+    Raise this exception from game-code (i.e., from within or below the update
+    function passed to C{parole.startup}) to cause Parole to shutdown gracefully
+    at its earliest opportunity.
+    """
+
+    def __init__(self):
+        ParoleError.__init__(self, "Parole shutdown requested")
+
+#==============================================================================
+# Some useful decorators
+
+def Property(function):
+    """
+    A decorator for turning methods into properties (attributes whose 
+    set/get/del behaviors are programmatic). To be used thus::
+
+        class SomeClass:
+            @parole.Property
+            def someProperty():
+                def fget(self):
+                    print 'getting!'
+                    return 'castlevaniaRL'
+                    
+                def fset(self, val):
+                    print 'setting!'
+                    
+                def fdel(self):
+                    print 'deleting!'
+                    
+        obj = SomeClass()
+        obj.someProperty = 42
+        print 'playing ' + obj.someProperty
+        del obj.someProperty
+        
+    which would produce::
+        
+        setting!
+        getting!
+        playing castlevaniaRL
+        deleting!
+    """
+    keys = 'fget', 'fset', 'fdel'
+    func_locals = {'doc':function.__doc__}
+    
+    def probeFunc(frame, event, arg):
+        if event == 'return':
+            locals = frame.f_locals
+            func_locals.update(dict((k,locals.get(k)) for k in keys))
+            sys.settrace(None)
+        return probeFunc
+    
+    sys.settrace(probeFunc)
+    function()
+    return property(**func_locals)
+        
+#==============================================================================
+
+class NotifyingConfig(config.Config):
+    '''
+    A C{Config} object as in L{parole.config}, with the additional ability to 
+    register listeners for changes to the state of the configuration.
+    '''
+    def notify(self, func, add=True):
+        '''
+        Registers or unregisters a function to be invoked when the config
+        changes. If registering, the function will be called immediately,
+        and then at any subsequent time that this C{NotifyingConfig}'s C{changed}
+        method is invoked.
+        
+        @param func: The function to register or unregister. Should accept this
+                     C{NotifyingConfig} object as its first unnamed argument.
+        @param add: Whether to register the function (C{add=True}), or unregister
+                    it (C{add=False}).
+        '''
+        try:
+            catlick = len(self.listeners)
+        except AttributeError:
+            self.listeners = []
+            
+        if add:
+            self.listeners.append(func)
+            func(self)
+        else:
+            self.listeners.remove(func)
+            
+    def changed(self):
+        '''
+        Calls all registered listener functions with this C{NotifyingConfig} 
+        object as the single parameter.
+        '''
+        try:
+            catlick = len(self.listeners)
+        except AttributeError:
+            self.listeners = []
+            
+        for func in self.listeners:
+            func(self)
+
+    touch = changed
+
+#==============================================================================
+
+GeneralUpdateEvent = pygame.USEREVENT
+
+#==============================================================================
+
+allModules = ['display', 'input', 'resource', 'shader', 'console', 'map']
+
+haveModule = dict(zip(allModules, (False,)*len(allModules)))
+
+def startup(configFile, updateFunc, caption='Parole', icon=None,
+        modules=allModules, gen=False):
+    """
+    Starts continuous execution of the Parole engine. configFile is the path to
+    configuration file to use (see parole.config). If caption is given, it is
+    the string that will be used as the title of the window used for parole's
+    display. If caption is not given, 'Parole' is used. 
+
+    If given, modules is a list of parole submodules which the user intends to
+    use. It defaults to the global allModules, which requests all submodules to
+    be available. Upon startup, the engine intializes each requested submodule.
+    An will be raised if configFile tries to configure a module not requested
+    in modules, and engine behavior is undefined if any user code attempts to
+    use an uninitialized module. The global haveModule dictionary indicates
+    which submodules have been intialized.
+
+    After initializing requested submodules, the engine enters its main frame
+    loop, which processes events, updates the display and other submodules, and
+    invokes the user-supplied updateFunc once per frame. updateFunc can either
+    be a python callable object (with no required arguments), or a string which
+    names a script resource (see parole.resource) which defines a callable
+    object "updateFunc" in its global namespace (again, with no required
+    arguments). If updateFunc is a string, the resource submodule must be
+    requested. The implementation of updateFunc is the entry point for user
+    code in the engine, and is where all application-specific behavior
+    originates.
+    """
+
+    global __paroleShutdown
+    info('Parole %s startup', versionStr)
+
+    # Make sure we have PyGame
+    if not havePyGame:
+        error('Unable to start Parole without PyGame!')
+        info('Parole shutting down.')
+        return
+
+    # Try to start psyco
+    try:
+        import psyco
+        psyco.full()
+        info('Psyco initialized.')
+    except:
+        info('Psyco unavailable.')
+
+    info('Requested modules: %s', ', '.join(modules))
+    # Notify user of any strangeness in requested modules
+    for m in modules:
+        if m not in allModules:
+            warn('Unknown module requested: %s', m)
+
+    # Game loop will continue until this is true
+    __paroleShutdown = False
+
+    # Make sure the stack of ui event handlers is cleared
+    del uiEventHandlers[:]
+    
+    info('Reading config: %s...', configFile)
+    f = open(configFile, 'r')
+    parole.conf = NotifyingConfig(f)
+    f.close()
+    
+    parole.conf.notify(__onConfigChange, True)
+    
+    info('Base up')
+    
+    # Init PyGame
+    sdlver = pygame.get_sdl_version()
+    info('Using PyGame %s on SDL %s.%s.%s', pygame.version.ver, sdlver[0],
+        sdlver[1], sdlver[2])
+    numUp, numFail = pygame.init()
+    if numFail > 0:
+        warn('%s PyGame modules failed to init', numFail)
+    info('PyGame up')
+    
+    # Init resource management
+    if 'resource' in modules:
+        import resource
+        resource.init()
+        haveModule['resource'] = True
+        info('Resource management up')
+    else:
+        warn('No resource management')
+
+    # Init the display
+    if 'display' in modules:
+        import display
+        display.init()
+        pygame.display.set_caption(caption)
+        haveModule['display'] = True
+        info('Display up')
+    else:
+        warn('No display')
+
+    # Set the window icon 
+    if 'resource' in modules and icon:
+        iconSurf = resource.getTexture(icon)
+        if iconSurf:
+            pygame.display.set_icon(iconSurf)
+        else:
+            error('Requested icon %r unavailable.', icon)
+
+    # Init the shader module
+    if 'shader' in modules:
+        import shader
+        import splash
+        shader.init()
+        haveModule['shader'] = True
+        info('Shaders up')
+    else:
+        warn('No shaders')
+    
+    # Init the input module
+    if 'input' in modules:
+        import input
+        input.init()
+        haveModule['input'] = True
+        info('Input module up')
+    else:
+        warn('No input')
+
+    # Init the console module
+    if 'console' in modules:
+        import console
+        console.init()
+        haveModule['console'] = True
+        info('Console up')
+    else:
+        warn('No console')
+        
+    # Init the map module
+    if 'map' in modules:
+        import map
+        parole.map.init()
+        haveModule['map'] = True
+        info('Map module up')
+    else:
+        warn('No map module')
+
+    # Give all loaded modules a chance to incorporate current config settings
+    #parole.conf.changed()
+
+    # did the user give us a functor or a generator?
+    updateFuncObj = updateFunc
+    updateGen = None
+    if gen:
+        updateGen = updateFuncObj()
+
+    # Retrieve updateFunc if it names a script resource
+    if type(updateFunc) is str:
+        updateFuncObj = resource.getObject(updateFunc, 'updateFunc')
+        if not updateFuncObj:
+            panic("Couldn't load updateFunc from \"%s\"!" % (updateFunc,))
+
+    if not callable(updateFuncObj):
+        panic("updateFunc is not callable!")
+
+    # Init done
+    info('Parole ready. Entering main loop.')
+
+    #if not len(uiEventHandlers):
+    #    warn('There is no handler to receive ui events.')
+    
+    # Main Engine loop
+    while not __paroleShutdown:
+        pygame.event.pump()
+
+        try:
+            # Update the display for this frame
+            if haveModule['display']:
+                t = time()
+                display.update()
+                t = time() - t
+                if parole.conf.general.logFrameTime:
+                    debug('Display update time: %sms', t)
+                if parole.conf.general.printFrameTime:
+                    sys.stderr.write('Display update time: %sms\n' % t)
+                    sys.stderr.flush()
+
+                # Show the splash screen/animation on engine startup
+                if haveModule['shader'] and haveModule['resource'] and \
+                        parole.conf.general.engineSplash:
+                    if not splash.doneSplash:
+                        if not splash.splash:
+                            splash.doSplash()
+                        continue
+
+            # Get PyGame's events for this frame. If __continuousUpdates is
+            # non-zero, then we have some animations running and need to
+            # immediately grab events with pygame.event.get, otherwise we can
+            # afford to free up some CPU time by blocking with
+            # pygame.event.wait.
+            if __continuousUpdates > 0:
+                #parole.debug('Continuous updates: %s', __continuousUpdates)
+                events = pygame.event.get()
+            else:
+                events = [pygame.event.wait()]
+
+            # Give the input module a chance to queue any input events
+            if haveModule['input']:
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        parole.input.handleKeyDown(event)
+                    elif event.type == pygame.KEYUP:
+                        parole.input.handleKeyUp(event)
+
+            # The console might want to respond to key presses before anything
+            # else
+            if haveModule['console']:
+                console.update()
+            
+            # The user's update function. Called each frame.    
+            if updateGen:
+                try:
+                    updateGen.next()
+                except StopIteration:
+                    warn("User frame code has been exhausted.")
+                    updateGen = None
+            else:
+                updateFuncObj()
+
+            # Give the UI event handlers a chance to handle stuff
+            for event in events:
+                if len(uiEventHandlers):
+                    handler = uiEventHandlers[-1]
+                    if callable(handler):
+                        handler(event)
+                    else:
+                        for h in handler:
+                            #parole.debug('Sending event "%s" to %s', event, h)
+                            h(event)
+                    
+        except ParoleShutdown:
+            __paroleShutdown = True
+            
+    info('Parole shutting down.')
+    
+    if 'resource' in modules:
+        resource.clearAll()
+    
+    # TODO: Save changes to configuration
+    #config.writeOut(configFile)
+    parole.conf.notify(__onConfigChange, False)
+    __unloadModules(modules)
+    
+    # We don't need to call pygame.quit(), since that will be taken care of
+    # automatically when the process exits. Also, this way we can restart
+    # the engine in the same process, if desired.
+
+#==============================================================================
+    
+def shutdown():
+    """
+    Causes Parole to shut down gracefully at its earliest opportunity. User code
+    should generally raise a L{ParoleShutdown} exception from within its update
+    function instead. C{shutdown()} is available in case Parole needs to be told
+    to shut down from someplace outside the frame update.
+    """
+
+    global __paroleShutdown
+    __paroleShutdown = True
+    
+#==============================================================================
+
+def time():
+    """
+    Returns the time in milliseconds since Parole startup. If L{startup} has
+    not yet been called, this always returns 0.
+    """
+
+    return pygame.time.get_ticks()
+
+#==============================================================================
+
+__continuousUpdates = 0
+
+def pushAnimation():
+    """
+    Call this function to inform Parole that you are beginning an activity
+    that requires continuous frame updates. As a matter of convenience, such
+    activities are referred to as "animations", but they don't necessarily
+    have to animate anything. Call C{popAnimation} when the animation is done.
+    """
+    global __continuousUpdates
+    __continuousUpdates += 1
+    parole.debug('Pushing animation; continuousUpdates = %s',
+            __continuousUpdates)
+
+def popAnimation():
+    """
+    Call this function to inform Parole that an animation has finished and no
+    longer needs continuous frame updates. Once all animations have been
+    popped, parole will wait for input before updating each frame, rather than
+    updating continuously. This significantly reduces CPU overhead.  
+    """
+    global __continuousUpdates 
+    __continuousUpdates = max(0, __continuousUpdates - 1)
+    pygame.event.post(pygame.event.Event(GeneralUpdateEvent, {}))
+    parole.debug('Popping animation; continuousUpdates = %s',
+            __continuousUpdates)
+
+#==============================================================================
+
+uiEventHandlers = []
+
+def pushUIEventHandler(handler):
+    debug('Pushing ui event handler: %s', handler)
+    uiEventHandlers.append(handler)
+
+#==============================================================================
+
+def popUIEventHandler():
+    handler = uiEventHandlers.pop()
+    debug('Popped ui event handler: %s', handler)
+    if len(uiEventHandlers):
+        debug('Current ui event handler: %s', uiEventHandlers[-1])
+    else:
+        warn('There are no more ui event handlers')
+    return handler
+
+#==============================================================================
+
+__logLevels = \
+{
+    'debug': logging.DEBUG,
+    'info': logging.INFO,
+    'warn': logging.WARN,
+    'error': logging.ERROR
+}
+
+def __onConfigChange(conf):
+    global logFrameTime, printFrameTime
+    val = parole.conf.general.loglevel
+    try:
+        logging.root.setLevel(__logLevels[val])
+        info('Log level: %s', val)
+    except KeyError:
+        error('Bad loglevel requested: %s', val)
+
+    __logFrameTime = parole.conf.general.logFrameTime
+    __printFrameTime = parole.conf.general.printFrameTime
+    info('logFrameTime: %s', __logFrameTime)
+    info('printFrameTime: %s', __printFrameTime)
+    info('engineSplash: %s', parole.conf.general.engineSplash)
+            
+def __unloadModules(modules):
+    # give modules a chance to clean up, unregister for events, config
+    # notifications, etc.
+    parole.info('Unloading modules: %s', ', '.join(modules))
+    if 'resource' in modules:   
+        parole.resource.unload()
+    if 'input' in modules:      
+        parole.input.unload()
+    if 'display' in modules:    
+        parole.display.unload()
+    if 'shader' in modules:     
+        parole.shader.unload()
+    if 'console' in modules:    
+        parole.console.unload()
+    if 'map' in modules:
+        parole.map.unload()
+    
