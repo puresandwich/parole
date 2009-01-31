@@ -5,7 +5,10 @@ Copyright (C) 2006, 2007, 2008 Max Bane.
 Python 2.5.4 (r254:67917, Dec 23 2008, 14:57:27) 
 [GCC 4.0.1 (Apple Computer, Inc. build 5363)] on darwin
 Type "help", "copyright", "credits" or "license" for more information.
+
 This is an interactive Python interpreter. Use it wisely!
+Console keybindings, at the time of engine start-up:
+{'down': 'next', 'page down': 'scroll down', 'page up': 'scroll up', 'up': 'previous'}
 =========================================================
 
 INFO: Setting up console Python interpreter...
@@ -26,8 +29,8 @@ INFO: Map default reticle RGB: [255, 255, 0]
 INFO: Map module up
 INFO: Parole ready. Entering main loop.
 INFO: Loading font "fonts/monaco.ttf" 16pt
-INFO: Map creation time (128 x 64): 3849ms => 2128.34502468 tiles per second.
-INFO: Map save time: 7957ms
+INFO: Console activated.
+INFO: Console deactivated.
 INFO: Parole shutting down.
 INFO: Clearing all resources
 INFO: Unloading modules: display, input, resource, shader, console, map

@@ -239,10 +239,14 @@ Copyright (C) 2006, 2007, 2008 Max Bane.
 
 Python %s on %s
 Type "help", "copyright", "credits" or "license" for more information.
+
 This is an interactive Python interpreter. Use it wisely!
+Console keybindings, at the time of engine start-up:
+%r
 =========================================================
 
-""" % (parole.versionStr, sys.version, sys.platform)
+""" % (parole.versionStr, sys.version, sys.platform,
+        parole.conf.console.commands.keypresses,)
 
 def init():
     """
@@ -268,6 +272,7 @@ def init():
     frame.write(banner)
     frame.flush()
 
+    # Start logging to the console (INFO level)
     parole.info('Begin logging to console...')
     logHandler = logging.StreamHandler(frame)
     logHandler.setLevel(logging.INFO)
@@ -275,6 +280,7 @@ def init():
         '%(levelname)s: %(message)s'))
     logging.getLogger().addHandler(logHandler)
 
+    # Create the actual interpreter
     #stderr = sys.stderr
     #sys.stderr = frame
     stdout = sys.stdout
