@@ -112,7 +112,7 @@ This version fleshes out maps. Utility functions for map generation, field of
 view calculations, lighting, saving/loading, and on-screen message placement.
 
 Bugs:
-[ ] More documentation.
+[.] More documentation.
 [x] ScrollView needs to be sped up a bit for largish maps
     - ScrollView is now significantly faster in cases where it has only one
       pass (which is normal for maps, text, etc.).
@@ -133,7 +133,6 @@ Features:
 [x]     Perlin noise generator
 [x] Map state saving/loading
 [x]     Pickling shaders (without pickling Surfaces)
-[.]     There are probably still some shaders that aren't picklable.
 [x] FOV
 [x]     Integrate MacDonald's code; Map2D.filedOfView wrapper
 [x]     Selective quadrant FOV
@@ -142,7 +141,7 @@ Features:
 [x]     Ability for MapFrame to "remember" seen but no longer visible tiles
 [x]     Be selective about quadrants updated for MapFrame FOV
 [x] Tile highlighting and selecting
-[ ] LOS - testing and tracing
+[x] LOS - testing and tracing
 [.] MapFrame message display/annotation system
 [x]     Annotation Basics
 [ ]     Simple customization of annotation appearance
@@ -153,7 +152,6 @@ Features:
 [ ]     Some optimization of AsciiTile.applyLight() - a cache?
 [x] Upgrade to PyGame 1.8.1
 [x] Add psyco support.
-[x]     Check works with Stackless
 [x] Support generator for user frame function
 
 0.5.0 Completed on:
@@ -165,6 +163,7 @@ discrete-event agent based simulation system (powered by SimPy?), along with
 various utilities specifically useful for roguelike games.
 
 Bugs:
+[ ] There are probably still some shaders that aren't picklable.
 
 Features:
 [ ] Agents and Events; SimPy integration?

@@ -550,7 +550,7 @@ def makeMap1():
     player = Player()
     map[0,9].add(player)
 
-    map.setAmbientLight((255,255,255), 0.8)
+    map.setAmbientLight((255,255,255), 0.7)
 
     light = parole.map.LightSource(colors['Orange'], 1.0)
     #light.apply(map, (0,9))
@@ -624,12 +624,28 @@ def makeMap3():
 def message(text):
     data['msg3Shader'].text = text
 
+class AimOverlay(parole.map.AsciiTile):
+    def __init__(self):
+        super(AimOverlay, self).__init__('*', (64,32,255))
+    def __repr__(self):
+        return "AimOverlay()"
+def addAimOverlay(tile):
+    tile.addOverlay(AimOverlay())
+    return True
+def remAimOverlay(tile):
+    for ovly in tile.overlays.keys():
+        if isinstance(ovly, AimOverlay):
+            tile.removeOverlay(ovly)
+    return True
+
+
 lookAnnote = None
+zapping = False
 
 @test.test()
 def t_mapgen():
     def handleWalk(command):
-        global lookAnnote, player
+        global lookAnnote, player, zapping
         if not player:
             return
         map = data['mapframe'].getMap()
@@ -654,18 +670,27 @@ def t_mapgen():
             displacement = (1, 1)
         elif command in ['southwest', 'treesouthwest']:
             displacement = (-1,1)
-        elif command == 'examine':
-            #if frame.selectedTile:
-            #    frame.selectTile(None, None)
-            #else:
-            #    frame.selectTile(player.pos)
+        elif command in ('examine', 'zap'):
+            # TODO: examine and zap use diff colored annotes/reticles
             if lookAnnote:
+                if zapping:
+                    zapping = False
+                    zapPos = (lookAnnote.tile.col, lookAnnote.tile.row)
+                    if map.traceLOS(player.pos, zapPos, remAimOverlay) is \
+                            map[zapPos]:
+                        message('You zap that space into oblivion!')
+                        map[zapPos].clear()
+                    else:
+                        message('You need line-of-sight to zap!')
+
                 frame.removeAnnotation(lookAnnote)
                 lookAnnote = None
             else:
                 playerTile = map[player.pos]
                 lookAnnote = frame.annotate(playerTile,
                     'You see: %s.' % ', '.join([str(x) for x in playerTile]))
+                if command == 'zap':
+                    zapping = True
             return
         elif command == 'save':
             time = parole.time()
@@ -707,10 +732,19 @@ def t_mapgen():
         if lookAnnote and not moveTree:
             frame.removeAnnotation(lookAnnote)
             lookTile = map[newPos]
-            lookAnnote = frame.annotate(lookTile,
-                'You see: %s.' % ', '.join([str(x) for x in lookTile]))
-            #message('You see: %s' % ', '.join([str(x) for x in \
-            #    frame.selectedTile]))
+            if zapping:
+                map.traceLOS(player.pos, curPos, remAimOverlay)
+                if map.traceLOS(player.pos, newPos, addAimOverlay) is \
+                        lookTile:
+                    lookAnnote = frame.annotate(lookTile,
+                        'Zap: %s.' % ', '.join([str(x) for x in lookTile]))
+                else:
+                    lookAnnote = frame.annotate(lookTile,
+                        'Not in LOS.')
+            else:
+                lookAnnote = frame.annotate(lookTile,
+                    'You see: %s.' % ', '.join([str(x) for x in lookTile]))
+
             return
 
         for obj in map[newPos]:

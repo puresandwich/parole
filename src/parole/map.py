@@ -933,11 +933,6 @@ class Map2D(object):
     def __repr__(self):
         return 'Map2D(%r, (%r,%r))' % (self.name, self.cols, self.rows) 
 
-    #def __getstate__(self):
-    #    state = self.__dict__.copy()
-    #    #parole.debug('Map2D.__getstate__: %r' , sc)
-    #    return state
-
     def __getitem__(self, (x,y)):
         return self.tiles[y][x]
 
@@ -1030,9 +1025,11 @@ class Map2D(object):
         #parole.debug('fieldOfView: time = %sms', parole.time() - time)
 
     def monitorNearby(self, obj, dist, callback, condition=None):
+        # User had better make sure callback and condition are pickleable
         if obj.parentTile not in self:
             raise ValueError('obj must be a MapObject contained by this Map.')
 
+        # FIXME wait, is this lambda pickleable?
         self.distMonObjs[obj] = (dist, callback, condition or (lambda x: True))
         self.dirtyDistMonObjs[obj] = set()
 
@@ -1061,6 +1058,106 @@ class Map2D(object):
             self.updateDirtyMonitors()
         if updateDirtyLight:
             self.updateDirtyLight()
+
+    def traceRay(self, p1, p2, callback):
+        """
+        Traces a Bresenham ray from one tile to another, calling C{callback} on
+        each tile along the way (including start and end).  C{p1} and C{p2} can
+        either be the C{Tile} objects (in this C{Map2D}) themselves, or
+        C{(col,row)}-tuples. C{callback} should be a callable object accepting a
+        C{Tile} as an argument, and should return C{True} if tracing should
+        continue past this C{Tile}, or C{False} if the trace should stop.
+        C{traceLOS} returns the last C{Tile} object reached by the trace.
+        """
+        if isinstance(p1, Tile):
+            t1 = p1
+            p1 = (t1.col, t1.row)
+        else:
+            t1 = self[p1]
+        if isinstance(p2, Tile):
+            t2 = p2
+            p2 = (t2.col, t2.row)
+        else:
+            t2 = self[p2]
+
+        if not (t1 in self and t2 in self):
+            raise ValueError('Tiles not in this Map2D instance.')
+
+        bp = list(bresenhamPoints(p1, p2))
+        if bp[-1] == p1:
+            # points reversed
+            bp.reverse()
+        for currentP in bp:
+            if not callback(self[currentP]):
+                break
+
+        return self[currentP]
+
+    def traceLOS(self, p1, p2, callback):
+        """
+        Traces a Bresenham ray like C{Map2D.traceRay}, but automatically stops
+        when it encounters a C{Tile} containing a C{MapObject} whose member
+        C{blocksLOS} is C{True}. The first C{Tile} in the ray does not count
+        toward blocking LOS, and callback will always be invoked on the last
+        C{Tile} visited.
+        """
+        def cb(tile):
+            if (callback) and (not callback(tile)):
+                return False
+            for obj in tile:
+                if obj.blocksLOS:
+                    return False
+            return True
+
+        return self.traceRay(p1, p2, cb)
+
+    def testLOS(self, p1, p2):
+        """
+        Tests whether a Bresenham ray can be cast from one tile to another.
+        C{p1} and C{p2} can either be the C{Tile} objects (in this C{Map2D})
+        themselves, or C{(col,row)}-tuples.
+        """
+        if isinstance(p2, Tile):
+            destT = p2
+        else:
+            destT = self[p2]
+        return self.traceLOS(p1, p2, None) is destT
+
+#==============================================================================
+
+def bresenhamPoints((x0, y0), (x1, y1)):
+    """
+    Generator yielding the sequence of integer points on the line segment from
+    (x0,x1) to (y0,y1) as traced by the Bresenham algorithm.
+    """
+    # Basically lifted right from Wikipedia.
+    steep = abs(y1 - y0) > abs(x1 - x0)
+    if steep:
+        # swap(x0,y0)
+        t = x0; x0 = y0; y0 = t
+
+        #swap(x1,y1)
+        t = x1; x1 = y1; y1 = t
+    if x0 > x1:
+        # swap(x0,x1)
+        t = x0; x0 = x1; x1 = t
+
+        # swap(y0,y1)
+        t = y0; y0 = y1; y1 = t
+    deltax = x1 - x0
+    deltay = abs(y1 - y0)
+    error = deltax / 2
+    y = y0
+    ystep = (y0 < y1) and 1 or -1
+    for x in xrange(x0, x1+1):
+        if steep:
+            yield (y,x)
+        else:
+            yield (x,y)
+        error -= deltay
+        if error < 0:
+            y += ystep
+            error += deltax
 
 #==============================================================================
 
