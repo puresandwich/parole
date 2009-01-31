@@ -1,0 +1,62 @@
+Parole
+Python Artful Roguelike Engine
+
+Notes for a 2D-artful roguelike engine
+
+- Instead of "sprites", software-programmable "shaders" ala Cipher, but
+with python sweetness.
+- Minimalist "comic"-style interface (see Z-Day for inspiration).
+- Game objects can occupy arbitrary collections of contiguous map cells. Can provide
+shaders for individual cells, or to be drawn over multiple cells.
+- Shader pixels each have a z-coord "depth" value.
+- Actual game rules for action resolution are modularized and kept separate from engine.
+- Episode system
+
+Engine services:
+- Shader-based display system
+- Time-stepped, event-driven simulation loop
+- Tiled Map and game object system (including object "groups")
+- LOS
+- "World" graph of maps; world-level simulation
+- Sound
+- Music
+- Input, "commands", mapping
+- Text-based design of maps and map-features.
+- Episode system (online content and patch distribution)
+- Basic AI framework
+
+Ideals:
+- Small
+- Simple
+- Portable
+- Pretty :)
+- A *complement* to pygame
+
+Tentative Plan:
+0.1.0 - prototype input handling (x)
+0.2.0 - prototype shader-based display system 
+0.3.0 - maps, commands, config
+0.4.0 - sound, music, mouse, some widgets, console
+
+--
+Work so far could be released as standalone low-level 2d game lib
+--
+
+0.5.0 - agents, simpy integration, event handling
+0.6.0 - serialization, agent description, map description
+0.7.0 - world graph, simulation lod
+0.8.0 - world generation and description (Context-free "world grammar")
+
+--
+At this point: general agent sim lib with 2d visualiation
+--
+
+0.9.0 - basic roguelike ai utils, e.g., los/fov, pathing
+0.10.0 - artful prose module... behavior description language?
+0.11.0 - animation, effects, refined display system
+0.12.0 - episodes?
+TEST-DEBUG-TEST... will probably require toy/test games
+1.0.0
+
+
+

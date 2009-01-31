@@ -1,0 +1,254 @@
+00:05:02 [base      ] INFO: Parole 0.5.0-dev startup
+00:05:02 [base      ] INFO: Psyco initialized.
+00:05:02 [base      ] INFO: Requested modules: display, input, resource, shader, console, map
+00:05:02 [base      ] INFO: Reading config: test.cfg...
+00:05:02 [base      ] INFO: Log level: debug
+00:05:02 [base      ] INFO: logFrameTime: False
+00:05:02 [base      ] INFO: printFrameTime: False
+00:05:02 [base      ] INFO: engineSplash: False
+00:05:02 [base      ] INFO: Base up
+00:05:02 [base      ] INFO: Using PyGame 1.8.1release-svn1537 on SDL 1.2.13
+00:05:03 [base      ] INFO: PyGame up
+00:05:03 [resource  ] INFO: Resource package suffix: .res
+00:05:03 [resource  ] INFO: Allowdirs: True
+00:05:03 [resource  ] INFO: Game directory: testgame
+00:05:03 [resource  ] INFO: Resource packages: data01.res (dir)
+00:05:03 [resource  ] INFO: Extended image loading available: 1
+00:05:03 [base      ] INFO: Resource management up
+00:05:03 [display   ] INFO: New value for display.width: 800
+00:05:03 [display   ] INFO: New value for display.depth: 32
+00:05:03 [display   ] INFO: New value for display.fullscreen: False
+00:05:03 [display   ] INFO: New value for display.hwaccel: False
+00:05:03 [display   ] INFO: New value for display.height: 600
+00:05:03 [display   ] INFO: General display update delay: 0
+00:05:03 [display   ] INFO: Display clear color: (0, 0, 0, 0)
+00:05:03 [display   ] DEBUG: Config changed; mode dirty
+00:05:03 [display   ] DEBUG: Creating display surface...
+00:05:03 [display   ] DEBUG: ... bingo!
+00:05:03 [display   ] INFO: New mode: SW Window 800x600x32
+00:05:03 [base      ] INFO: Display up
+00:05:03 [base      ] INFO: Shaders up
+00:05:03 [input     ] INFO: Keyboard repeat delay: 100ms
+00:05:03 [input     ] INFO: Use shiftmap: True
+00:05:03 [input     ] INFO: Shiftmap: shiftmap_US
+00:05:03 [base      ] INFO: Input module up
+00:05:03 [console   ] INFO: Console key: ~
+00:05:03 [console   ] INFO: Console PS1: ">>> "
+00:05:03 [console   ] INFO: Console PS2: "... "
+00:05:03 [resource  ] INFO: Loading font "fonts/monaco.ttf" 10pt
+00:05:03 [resource  ] INFO: Loading resource: "fonts/monaco.ttf"
+00:05:03 [resource  ] DEBUG: "fonts/monaco.ttf" found in "data01.res"
+00:05:03 [console   ] INFO: Begin logging to console...
+00:05:03 [console   ] INFO: Setting up console Python interpreter...
+00:05:03 [console   ] INFO: Loading console history file...
+00:05:03 [base      ] INFO: Console up
+00:05:03 [resource  ] INFO: Loading font "fonts/ProggySmall.ttf" 16pt
+00:05:03 [resource  ] INFO: Loading resource: "fonts/ProggySmall.ttf"
+00:05:03 [resource  ] DEBUG: "fonts/ProggySmall.ttf" found in "data01.res"
+00:05:03 [map       ] INFO: Ascii map font: fonts/ProggySmall.ttf
+00:05:03 [map       ] INFO: Ascii map font size: 16
+00:05:03 [map       ] INFO: Ascii map antialiasing: False
+00:05:03 [map       ] INFO: Ascii map font makeSquare: True
+00:05:03 [map       ] INFO: Map annotation font: fonts/Arial.ttf
+00:05:03 [map       ] INFO: Map annotation font size: 12
+00:05:03 [resource  ] INFO: Loading font "fonts/Arial.ttf" 12pt
+00:05:03 [resource  ] INFO: Loading resource: "fonts/Arial.ttf"
+00:05:03 [resource  ] DEBUG: "fonts/Arial.ttf" found in "data01.res"
+00:05:03 [map       ] INFO: Map default annotation line RGB: [255, 255, 0]
+00:05:03 [map       ] INFO: Map default reticle RGB: [255, 255, 0]
+00:05:03 [base      ] INFO: Map module up
+00:05:03 [base      ] INFO: Parole ready. Entering main loop.
+00:05:03 [base      ] DEBUG: Pushing ui event handler: (<parole.input.CommandMap instance at 0x111f8f80>, <parole.input.CommandMap instance at 0x111f8fa8>)
+00:05:03 [resource  ] INFO: Loading font "fonts/monaco.ttf" 16pt
+00:05:03 [shader    ] DEBUG: render text: TextBlockPass16
+00:05:03 [shader    ] DEBUG: render text: TextBlockPass17
+00:05:03 [shader    ] DEBUG: render text: TextBlockPass18
+00:05:09 [input     ] DEBUG: Key down: q. Queue: ['q']
+00:05:09 [input     ] DEBUG: CommandMap: quit
+00:05:09 [base      ] INFO: Parole shutting down.
+00:05:09 [resource  ] INFO: Clearing all resources
+00:05:09 [base      ] INFO: Unloading modules: display, input, resource, shader, console, map
+00:05:52 [base      ] INFO: Parole 0.5.0-dev startup
+00:05:52 [base      ] INFO: Psyco initialized.
+00:05:52 [base      ] INFO: Requested modules: display, input, resource, shader, console, map
+00:05:52 [base      ] INFO: Reading config: test.cfg...
+00:05:52 [base      ] INFO: Log level: debug
+00:05:52 [base      ] INFO: logFrameTime: False
+00:05:52 [base      ] INFO: printFrameTime: False
+00:05:52 [base      ] INFO: engineSplash: False
+00:05:52 [base      ] INFO: Base up
+00:05:52 [base      ] INFO: Using PyGame 1.8.1release-svn1537 on SDL 1.2.13
+00:05:53 [base      ] INFO: PyGame up
+00:05:53 [resource  ] INFO: Resource package suffix: .res
+00:05:53 [resource  ] INFO: Allowdirs: True
+00:05:53 [resource  ] INFO: Game directory: testgame
+00:05:53 [resource  ] INFO: Resource packages: data01.res (dir)
+00:05:53 [resource  ] INFO: Extended image loading available: 1
+00:05:53 [base      ] INFO: Resource management up
+00:05:53 [display   ] INFO: New value for display.width: 800
+00:05:53 [display   ] INFO: New value for display.depth: 32
+00:05:53 [display   ] INFO: New value for display.fullscreen: False
+00:05:53 [display   ] INFO: New value for display.hwaccel: False
+00:05:53 [display   ] INFO: New value for display.height: 600
+00:05:53 [display   ] INFO: General display update delay: 0
+00:05:53 [display   ] INFO: Display clear color: (0, 0, 0, 0)
+00:05:53 [display   ] DEBUG: Config changed; mode dirty
+00:05:53 [display   ] DEBUG: Creating display surface...
+00:05:53 [display   ] DEBUG: ... bingo!
+00:05:53 [display   ] INFO: New mode: SW Window 800x600x32
+00:05:53 [base      ] INFO: Display up
+00:05:53 [base      ] INFO: Shaders up
+00:05:53 [input     ] INFO: Keyboard repeat delay: 100ms
+00:05:53 [input     ] INFO: Use shiftmap: True
+00:05:53 [input     ] INFO: Shiftmap: shiftmap_US
+00:05:53 [base      ] INFO: Input module up
+00:05:53 [console   ] INFO: Console key: ~
+00:05:53 [console   ] INFO: Console PS1: ">>> "
+00:05:53 [console   ] INFO: Console PS2: "... "
+00:05:53 [resource  ] INFO: Loading font "fonts/monaco.ttf" 10pt
+00:05:53 [resource  ] INFO: Loading resource: "fonts/monaco.ttf"
+00:05:53 [resource  ] DEBUG: "fonts/monaco.ttf" found in "data01.res"
+00:05:53 [console   ] INFO: Begin logging to console...
+00:05:53 [console   ] INFO: Setting up console Python interpreter...
+00:05:53 [console   ] INFO: Loading console history file...
+00:05:53 [base      ] INFO: Console up
+00:05:53 [resource  ] INFO: Loading font "fonts/ProggySmall.ttf" 16pt
+00:05:53 [resource  ] INFO: Loading resource: "fonts/ProggySmall.ttf"
+00:05:53 [resource  ] DEBUG: "fonts/ProggySmall.ttf" found in "data01.res"
+00:05:53 [map       ] INFO: Ascii map font: fonts/ProggySmall.ttf
+00:05:53 [map       ] INFO: Ascii map font size: 16
+00:05:53 [map       ] INFO: Ascii map antialiasing: False
+00:05:53 [map       ] INFO: Ascii map font makeSquare: True
+00:05:53 [map       ] INFO: Map annotation font: fonts/Arial.ttf
+00:05:53 [map       ] INFO: Map annotation font size: 12
+00:05:53 [resource  ] INFO: Loading font "fonts/Arial.ttf" 12pt
+00:05:53 [resource  ] INFO: Loading resource: "fonts/Arial.ttf"
+00:05:53 [resource  ] DEBUG: "fonts/Arial.ttf" found in "data01.res"
+00:05:53 [map       ] INFO: Map default annotation line RGB: [255, 255, 0]
+00:05:53 [map       ] INFO: Map default reticle RGB: [255, 255, 0]
+00:05:53 [base      ] INFO: Map module up
+00:05:53 [base      ] INFO: Parole ready. Entering main loop.
+00:05:53 [base      ] DEBUG: Pushing ui event handler: (<parole.input.CommandMap instance at 0x4b579b8>, <parole.input.CommandMap instance at 0x4b579e0>)
+00:05:53 [resource  ] INFO: Loading font "fonts/monaco.ttf" 16pt
+00:05:53 [shader    ] DEBUG: render text: TextBlockPass16
+00:05:53 [shader    ] DEBUG: render text: TextBlockPass17
+00:05:53 [shader    ] DEBUG: render text: TextBlockPass18
+00:05:58 [input     ] DEBUG: Key down: 1. Queue: ['1']
+00:05:58 [input     ] DEBUG: CommandMap: makeMap1
+00:06:01 [map       ] DEBUG: LightSource.apply: time = 21ms
+00:06:01 [map       ] DEBUG: LightSource.apply: time = 22ms
+00:06:01 [map       ] DEBUG: LightSource.apply: time = 25ms
+00:06:01 [map       ] DEBUG: LightSource.apply: time = 31ms
+00:06:01 [map       ] DEBUG: LightSource.apply: time = 35ms
+00:06:01 [test-0.5.0] INFO: Map creation time (128 x 64): 3849ms => 2128.34502468 tiles per second.
+00:06:02 [shader    ] DEBUG: render text: TextBlockPass16
+00:06:02 [shader    ] DEBUG: render text: TextBlockPass17
+00:06:02 [shader    ] DEBUG: render text: TextBlockPass18
+00:06:02 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:03 [shader    ] DEBUG: ShaderGrid.update: time = 975
+00:06:03 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:03 [shader    ] DEBUG: ScrollView.update: time = 977
+00:06:03 [input     ] DEBUG: Key up: 1
+00:06:04 [input     ] DEBUG: Key down: n. Queue: ['n']
+00:06:04 [input     ] DEBUG: CommandMap: southeast
+00:06:04 [map       ] DEBUG: LightSource.remove: time = 0ms
+00:06:04 [map       ] DEBUG: LightSource.apply: time = 32ms
+00:06:04 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:04 [shader    ] DEBUG: ShaderGrid.update: time = 40
+00:06:04 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:04 [shader    ] DEBUG: ScrollView.update: time = 41
+00:06:04 [input     ] DEBUG: Key up: n
+00:06:04 [input     ] DEBUG: Key down: n. Queue: ['n']
+00:06:04 [input     ] DEBUG: CommandMap: southeast
+00:06:04 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:04 [map       ] DEBUG: LightSource.apply: time = 4ms
+00:06:04 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:04 [shader    ] DEBUG: ShaderGrid.update: time = 9
+00:06:04 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:04 [shader    ] DEBUG: ScrollView.update: time = 10
+00:06:04 [input     ] DEBUG: Key up: n
+00:06:05 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:05 [input     ] DEBUG: CommandMap: east
+00:06:05 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:05 [map       ] DEBUG: LightSource.apply: time = 5ms
+00:06:05 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:05 [shader    ] DEBUG: ShaderGrid.update: time = 9
+00:06:05 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:05 [shader    ] DEBUG: ScrollView.update: time = 9
+00:06:05 [input     ] DEBUG: Key up: l
+00:06:05 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:05 [input     ] DEBUG: CommandMap: east
+00:06:05 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:05 [map       ] DEBUG: LightSource.apply: time = 5ms
+00:06:05 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:05 [shader    ] DEBUG: ShaderGrid.update: time = 10
+00:06:05 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:05 [shader    ] DEBUG: ScrollView.update: time = 11
+00:06:05 [input     ] DEBUG: Key up: l
+00:06:05 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:05 [input     ] DEBUG: CommandMap: east
+00:06:05 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:05 [map       ] DEBUG: LightSource.apply: time = 21ms
+00:06:05 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:05 [shader    ] DEBUG: ShaderGrid.update: time = 9
+00:06:05 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:05 [shader    ] DEBUG: ScrollView.update: time = 11
+00:06:05 [input     ] DEBUG: Key up: l
+00:06:06 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:06 [input     ] DEBUG: CommandMap: east
+00:06:06 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:06 [map       ] DEBUG: LightSource.apply: time = 4ms
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:06 [shader    ] DEBUG: ShaderGrid.update: time = 10
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:06 [shader    ] DEBUG: ScrollView.update: time = 10
+00:06:06 [input     ] DEBUG: Key up: l
+00:06:06 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:06 [input     ] DEBUG: CommandMap: east
+00:06:06 [map       ] DEBUG: LightSource.remove: time = 0ms
+00:06:06 [map       ] DEBUG: LightSource.apply: time = 4ms
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:06 [shader    ] DEBUG: ShaderGrid.update: time = 10
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:06 [shader    ] DEBUG: ScrollView.update: time = 11
+00:06:06 [input     ] DEBUG: Key up: l
+00:06:06 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:06 [input     ] DEBUG: CommandMap: east
+00:06:06 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:06 [map       ] DEBUG: LightSource.apply: time = 4ms
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:06 [shader    ] DEBUG: ShaderGrid.update: time = 10
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:06 [shader    ] DEBUG: ScrollView.update: time = 10
+00:06:06 [input     ] DEBUG: Key up: l
+00:06:06 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:06 [input     ] DEBUG: CommandMap: east
+00:06:06 [map       ] DEBUG: LightSource.remove: time = 0ms
+00:06:06 [map       ] DEBUG: LightSource.apply: time = 4ms
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:06 [shader    ] DEBUG: ShaderGrid.update: time = 10
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:06 [shader    ] DEBUG: ScrollView.update: time = 10
+00:06:06 [input     ] DEBUG: Key up: l
+00:06:06 [input     ] DEBUG: Key down: l. Queue: ['l']
+00:06:06 [input     ] DEBUG: CommandMap: east
+00:06:06 [map       ] DEBUG: LightSource.remove: time = 1ms
+00:06:06 [map       ] DEBUG: LightSource.apply: time = 4ms
+00:06:06 [shader    ] DEBUG: ScrollView28284: updating contents...
+00:06:07 [shader    ] DEBUG: ShaderGrid.update: time = 11
+00:06:07 [shader    ] DEBUG: ScrollView28284: updating view (offset=(0, 0))...
+00:06:07 [shader    ] DEBUG: ScrollView.update: time = 11
+00:06:07 [input     ] DEBUG: Key up: l
+00:06:07 [input     ] DEBUG: Key down: s. Queue: ['s']
+00:06:07 [input     ] DEBUG: CommandMap: save
+00:06:15 [test-0.5.0] INFO: Map save time: 7957ms
+00:06:15 [shader    ] DEBUG: ScrollView28286: updating contents...
+00:06:16 [shader    ] DEBUG: ShaderGrid.update: time = 530
+00:06:16 [shader    ] DEBUG: ScrollView28286: updating view (offset=(0, 0))...
+00:06:16 [shader    ] DEBUG: ScrollView.update: time = 531
+00:06:16 [input     ] DEBUG: Key up: s
+00:06:23 [input     ] DEBUG: Key down: q. Queue: ['q']
+00:06:23 [input     ] DEBUG: CommandMap: quit
+00:06:23 [base      ] INFO: Parole shutting down.
+00:06:23 [resource  ] INFO: Clearing all resources
+00:06:23 [base      ] INFO: Unloading modules: display, input, resource, shader, console, map
