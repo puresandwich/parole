@@ -629,7 +629,7 @@ lookAnnote = None
 @test.test()
 def t_mapgen():
     def handleWalk(command):
-        global lookAnnote
+        global lookAnnote, player
         if not player:
             return
         map = data['mapframe'].getMap()
@@ -671,13 +671,26 @@ def t_mapgen():
             time = parole.time()
             data['mapframe'].setMap(None)
             f = bz2.BZ2File('mapsave.sav', 'w')
-            cPickle.dump(map, f, protocol=-1)
+            saveData = (map, player, data['light'], data['tree'])
+            cPickle.dump(saveData, f, protocol=-1)
             f.close()
             data['mapframe'].setMap(map)
             time = (parole.time() - time) or 1
             parole.info('Map save time: %dms', time)
             return
         elif command == 'restore':
+            if lookAnnote:
+                data['mapframe'].removeAnnotation(lookAnnote)
+                lookAnnote = None
+            data['mapframe'].setMap(None)
+            time = parole.time()
+            f = bz2.BZ2File('mapsave.sav', 'r')
+            map, player, data['light'], data['tree'] = cPickle.load(f)
+            #sd = cPickle.load(f)
+            f.close()
+            data['mapframe'].setMap(map)
+            time = (parole.time() - time) or 1
+            parole.info('Map restore time: %dms', time)
             return
             
         if data['msg3Shader'].text:
