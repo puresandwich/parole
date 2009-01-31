@@ -119,7 +119,8 @@ Bugs:
 [ ] FOV has some performance problems, especially when remembering tiles. The
     more tiles have been seen, the slower it gets to update FOV even in unrelated
     parts of the map. Maybe ShaderGrid needs optimizing?
-[ ] Why does importing PyGame now cause malloc errors?
+[x] Why does importing PyGame now cause malloc errors?
+    - answer: using bad verison of stackless. screw stackless.
 
 Features:
 [x] Option to make map font square.
@@ -130,8 +131,9 @@ Features:
 [x]     Template Generator - v2. Tiling.
 [x]     Cellular Automata Generator
 [x]     Perlin noise generator
-[ ] Map state saving/loading
-[ ]     Pickling shaders (without pickling Surfaces)
+[x] Map state saving/loading
+[x]     Pickling shaders (without pickling Surfaces)
+[.]     There are probably still some shaders that aren't picklable.
 [x] FOV
 [x]     Integrate MacDonald's code; Map2D.filedOfView wrapper
 [x]     Selective quadrant FOV
@@ -159,7 +161,7 @@ Features:
 
 --=== Todo for 0.6.0 ===--
 This version introduces the sim module, which provides all the components of a
-discrete-event agent based simulation system (powered by SimPy), along with
+discrete-event agent based simulation system (powered by SimPy?), along with
 various utilities specifically useful for roguelike games.
 
 Bugs:

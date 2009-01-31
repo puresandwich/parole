@@ -166,7 +166,7 @@ class Shader(Sprite):
         return state
 
     def __setstate__(self, state):
-        parole.debug('Shader.__setstate__: %r', state)
+        #parole.debug('Shader.__setstate__: %r', state)
         self.__dict__.update(state)
         if self.image:
             self.image = pygame.Surface(self.size).convert_alpha()

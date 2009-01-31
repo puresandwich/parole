@@ -691,6 +691,10 @@ class Tile(shader.Shader):
         #parole.debug('Tile.__getstate__: %r', state)
         return state
 
+    def __setstate__(self, state):
+        super(Tile, self).__setstate__(state)
+        self.__resetPasses()
+
     def __iter__(self):
         for obj in self.contents:
             yield obj
@@ -736,37 +740,47 @@ class Tile(shader.Shader):
                 raise ValueError('val must be contained in this Tile!')
 
             #self.last_highestObject = self._highestObject
-            try:
-                #self.remPass(self._highestObject.shader)
-                self.clearPasses()
-            except AttributeError:
-                pass
+            #try:
+            #    #self.remPass(self._highestObject.shader)
+            #    self.clearPasses()
+            #except AttributeError:
+            #    pass
             
             self._highestObject = val
-            # FIXME: kind of hacky. if this object doesnt' have a background
-            # color, find the next highest one that does, and add a colorfield
-            # with that color, so that backgrounds show through higher objects
-            # with no backgrounds
-            if hasattr(self._highestObject, 'shader') and not \
-                    self._highestObject.shader.bg_rgb:
+            self.__resetPasses()
 
-                highestBgRGB = None
-                highestLayer = None
-                highestBgObj = None
-                for obj in self:
-                    if hasattr(obj, 'shader') and obj.shader.bg_rgb\
-                            and obj.layer > highestLayer:
-                        highestBgRGB = obj.shader.bg_rgb
-                        highestLayer = obj.layer
-                        highestBgObj = obj
-                if highestBgRGB:
-                    self.addPass(highestBgObj.shader.bgShader)
-            try:
-                self.addPass(self._highestObject.shader)
-            except AttributeError:
-                pass
-            for overlay, pos in self.overlays.iteritems():
-                self.addPass(overlay, pos=pos)
+    def __resetPasses(self):
+        self.clearPasses()
+
+        # FIXME: kind of hacky. if this object doesn't have a background
+        # color, find the next highest one that does, and add a colorfield
+        # with that color, so that backgrounds show through higher objects
+        # with no backgrounds
+        if hasattr(self._highestObject, 'shader') and not \
+                self._highestObject.shader.bg_rgb:
+
+            highestBgRGB = None
+            highestLayer = None
+            highestBgObj = None
+            for obj in self:
+                if hasattr(obj, 'shader') and obj.shader.bg_rgb\
+                        and obj.layer > highestLayer:
+                    highestBgRGB = obj.shader.bg_rgb
+                    highestLayer = obj.layer
+                    highestBgObj = obj
+            if highestBgRGB:
+                self.addPass(highestBgObj.shader.bgShader)
+
+        # add the top object's shader to our passes
+        try:
+            self.addPass(self._highestObject.shader)
+        except AttributeError:
+            pass
+
+        # overlays
+        for overlay, pos in self.overlays.iteritems():
+            self.addPass(overlay, pos=pos)
+
         
     def add(self, obj):
         """
