@@ -66,7 +66,7 @@ def init():
     
 def unload():
     """
-    Unloads the map modules during engine shutdown.
+    Unloads the map module during engine shutdown.
     """
     parole.conf.notify(__onConfigChange, False)
 
@@ -74,9 +74,9 @@ def unload():
 
 class MapFrame(shader.Frame):
     """
-    A Frame for displaying a view of a Map2D. Provides a scrollable grid of
+    A L{Frame} for displaying a view of a L{Map2D}. Provides a scrollable grid of
     shaders for displaying the tiles of the map. The tile size must be known
-    in advance, when the MapFrame is created, and must agree with the actual
+    in advance, when the C{MapFrame} is created, and must agree with the actual
     size of the shaders offered by the tiles of the map.
     """
 
@@ -328,6 +328,13 @@ class MapFrame(shader.Frame):
         self.__dirtyFovQuads.clear()
 
     def selectTile(self, posOrX, y=None):
+        """
+        A convenience function that applies self.reticle as an overlay at the
+        given position. Only one tile may be selected at a time in this way, and
+        subsequent calls to C{selectTile} will automatically remove the overlay
+        from the previously selected tile. To select no tile call
+        C{selectTile(None)}.
+        """
         parole.debug('select: %s,%s', posOrX, y)
         if self.selectedTile:
             self.selectedTile.removeOverlay(self.reticle)
@@ -341,6 +348,51 @@ class MapFrame(shader.Frame):
 
     def annotate(self, tile, shaderOrText, ann=None, lineRGB=None,
             reticleRGB=None, textFont=None, textWidth=150):
+        """
+        Annotates the given L{Tile} of this L{MapFrame}'s current L{Map2D}.
+        There are three ways to use this method: 
+            1. By supplying an L{Annotation} object (C{ann}) to use directly.
+               Pass C{None} for C{shaderOrText}.
+            2. By giving a L{Shader} object (C{shaderOrText}) from which to
+               construct an L{Annotation}. Pass C{None} for C{ann} (its
+               default).
+            3. By simply giving some text (C{shaderOrText}) from which to
+               construct a basic text-displaying L{Annotation}. Pass C{None} for
+               C{ann} (its default).
+
+        If method 2 or 3 is being used, the remaining keyword arguments
+        (C{lineRGB, reticleRGB, textFont, textWidth}) may be specified to
+        control the appearance of the L{Annotation} that is built. If method 1
+        is used, the L{Annotation} object (C{ann}) overrides any values for
+        these arguments.
+
+        @param tile:         The L{Tile} to annotate. Must be contained in this
+                             L{MapFrame}'s current L{Map2D}.
+        @type tile:          L{Tile}
+        @param shaderOrText: The shader or text from which to construct an
+                             L{Annotation} if one is not being provided through
+                             C{ann}.
+        @type shaderOrText:  L{Shader} or C{str} or C{None}.
+        @param ann:          The L{Annotation} object to place, if one is not
+                             being constructed through the other arguments.
+        @type ann:           L{Annotation} or C{None}.
+        @param lineRGB:      The color of the line linking the annotated L{Tile}
+                             to it's L{Annotation}, if being constructed from a
+                             shader or text.
+        @type lineRGB:       C{(red,green,blue)}-tuple or C{None}.
+        @param reticleRGB:   The color of the reticle overlay place on the
+                             annotated L{Tile} if the annotation is being
+                             constructed from a shader or text.
+        @type reticleRGB:    C{(red,green,blue)}-tuple or C{None}.
+        @param textFont:     The font to render the text in if the L{Annotation}
+                             is being created from text (method 3).
+        @type textFont:      C{pygame.Font}.
+        @param textWidth:    Text wrap-width if the L{Annotation} is being
+                             created from text (method 3).
+        @return:             The L{Annotation} object placed, whether it was
+                             constructed by methods 1 or 2, or specified as in
+                             method 1.
+        """
         # tile may be a Tile instance or a coordinate tuple -- figure which
         # Tile we're referring to
         if type(tile) is tuple and len(tile)==2:
@@ -358,7 +410,9 @@ class MapFrame(shader.Frame):
                     (255,255,255), text=shaderOrText, wrap='word',
                     wrap_width=textWidth)
             sdr.update()
-        else:
+        elif not ann:
+            # if the user didn't specify an Annotation, he has to give us some
+            # text to make one with.
             raise TypeError('shaderOrText must be a Shader instance or '
                             'a string.')
 
@@ -409,6 +463,13 @@ class MapFrame(shader.Frame):
         return ann
 
     def removeAnnotation(self, annotation):
+        """
+        Remove a previously added (via L{annotate}) L{Annotation}.
+
+        @param annotation: The L{Annotation} to remove. This should be the value
+                           returned by L{annotate}.
+        @type annotation: L{Annotation}.
+        """
         # stop drawing it
         self.__annotationsAt[annotation.tile].remove(annotation)
         if not self.__annotationsAt[annotation.tile]:
@@ -529,8 +590,27 @@ class MapFrame(shader.Frame):
 
 class Annotation(shader.Shader):
     """
-    An Annotation is a message (or any kind of) window/shader linked to a
-    particular Tile of a Map that can be displayed in an associated MapFrame.
+    An C{Annotation} is a message (or any kind of) window/shader linked to a
+    particular L{Tile} of a L{Map2D} that can be displayed in an associated
+    L{MapFrame}. The C{Annotation} is display placing an overlay reticle on the
+    annotated L{Tile}, and drawing a line from the reticle to the
+    C{Annotation}'s shader, which is automatically positioned near the annotated
+    L{Tile}. Annotated tiles not currently visible in the L{MapFrame} have their
+    shaders placed at the nearest edge of the screen, with a line extending in
+    the direction of the L{Tile}.
+    
+    @param tile: The L{Tile} to annotate.
+    @type tile: L{Tile}.
+    @param shader: The L{Shader} with which to annotate the tile.
+    @type shader: L{Shader}.
+    @param lineRGB: The color of the line linking the tile to the annotation
+                    shader. Pass C{None} for the default color
+                    (L{MapFrame.defaultAnnoteLineRGB}).
+    @type lineRGB: C{(red,green,blue)}-tuple or C{None}.
+    @param reticleRGB: The color of the reticle overlay to apply to the
+                       annotated tile. Pass C{None} for the default color
+                       (L{MapFrame.defaultAnnoteReticleRGB}).
+    @type reticleRGB: C{(red,green,blue)}-tuple or C{None}.
     """
 
     def __init__(self, tile, shader, lineRGB=(255,255,255),
@@ -553,21 +633,24 @@ class Annotation(shader.Shader):
 
 class MapObject(object):
     """
-    Creates a new MapObject, of which anything in a map Tile must be a 
-    subclass.
+    Any game object contained within a L{Tile} must be an instance of
+    C{MapObject}.
     
-    @type    layer: number
+    @type    layer: C{int}
     @param   layer: Determines either the order in which the objects in a tile
                     should be drawn, or determines which object in a tile gets
-                    drawn alone (e.g., the one with the highest layer),
+                    drawn alone (the one with the highest layer),
                     depending on the Map's options.
-    @type shader: parole.shader.Shader
+    @type shader: L{Shader}
     @param shader: The shader to use for drawing this object on the map. All
                    MapObjects on the same Map must have the same sized shaders.
-    @type blocksLOS: bool
+                   TODO: C{MapShader} class? must provide C{applyLight} and
+                   C{bgShader}.
+    @type blocksLOS: C{bool}
     @param blocksLOS: Whether this object blocks line of sight through the
-    tile containing it.
-                 
+                      tile containing it. This affects both FOV and LOS
+                      calculations performed by the L{Map2D} containing the
+                      object.
     """
     
     layer = 0
@@ -586,6 +669,11 @@ class MapObject(object):
         
     @parole.Property
     def layer():
+        """
+        The display layer of this L{MapObject}. Setting this property
+        automatically updates any containing L{Tile}'s display of the
+        L{MapObject}.
+        """
         def fget(self):
             return self._layer
         
@@ -601,6 +689,11 @@ class MapObject(object):
         
     @parole.Property
     def shader():
+        """
+        The display L{Shader} of this L{MapObject}. Setting this property
+        automatically updates any containing L{Tile}'s display of the
+        L{MapObject}.
+        """
         def fget(self):
             return self._shader
         
@@ -913,6 +1006,10 @@ class Tile(shader.Shader):
 #==============================================================================
 
 class Map2D(object):
+    """
+    A two-dimensional array of L{Tile} objects, along with varioius utility
+    methods.
+    """
     def __init__(self, name, (cols, rows)):
         self.name = name
         self.rows, self.cols = rows, cols
