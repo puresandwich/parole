@@ -1,3 +1,8 @@
+[ ] = To do
+[x] = Done
+[.] = Partial or in progress
+[-] = Skipped
+
 --=== Todo for 0.1.0 ===--
 
 Bugs:
