@@ -423,15 +423,18 @@ class Shader(Sprite):
         self.__updateFuncs.remove(f)
         self.touch()
 
-    def centeredPos(self, child):
-        # TODO
+    def centeredPos(self, parent=None):
         """
         Returns the (x,y) coordinates at which this shader would be centered
-        on its parent, or on the screen if it has no parent.
+        on its first parent, or on the given parent, or on the screen if none is
+        specified the shader has no parent.
         """
-        if self.parent:
-            return (self.parent.width/2 - self.width/2,
-                    self.parent.height/2 - self.height/2)
+        if (not parent) and self.parents:
+            parent = list(self.parents)[0]
+
+        if parent:
+            return (parent.width/2 - self.width/2,
+                    parent.height/2 - self.height/2)
         else:
             scr = display.getSurface()
             return (scr.get_width()/2 - self.width/2,

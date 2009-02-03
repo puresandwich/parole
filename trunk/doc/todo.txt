@@ -145,12 +145,16 @@ Features:
 [x]     Binding a MapFrame to a MapObject's field of view
 [x]     Ability for MapFrame to "remember" seen but no longer visible tiles
 [x]     Be selective about quadrants updated for MapFrame FOV
+[ ]     Testing/enumerating the FOV of arbitrary MapObjects regardless of
+        whether a MapFrame is bound to them.
 [x] Tile highlighting and selecting
 [x] LOS - testing and tracing
-[.] MapFrame message display/annotation system
+[x] MapFrame message display/annotation system
 [x]     Annotation Basics
-[ ]     Simple customization of annotation appearance
+[x]     Simple customization of annotation appearance
 [x]     Annotations of tiles offscreen (should be better)
+[x]     Overlays should show up on remembered but unseen tiles.
+[ ]     Handle overlays on unseen, unremembered tiles.
 [.] Lighting and LightSources
 [x]     Basics
 [ ]     LOS blockers moving through light

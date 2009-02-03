@@ -100,8 +100,9 @@ class MapFrame(shader.Frame):
         self.__fovObj = None
         self.__fovRad = None
         self.__dirtyFovQuads = None
-        self.__visibleTiles = set()
+        self.visibleTiles = set()
         self.__rememberSeenTiles = False
+        self.rememberedTiles = set()
         self.__annotationsAt = {} # Tile -> (Annotation, Rect)
 
         # public attributes
@@ -132,9 +133,11 @@ class MapFrame(shader.Frame):
         """
         if self.__map and self.__grid:
             for tile in self.__map:
-                self.__grid.remPass(tile)
+                if tile in self.__grid.passes:
+                    self.__grid.remPass(tile)
                 self.__grid[tile.col, tile.row] = None
-
+        if not map:
+            self.bindVisibilityToFOV(None, None)
         self.__map = map
         self.__fovObj = None
         self.__fovRad = None
@@ -242,7 +245,7 @@ class MapFrame(shader.Frame):
         """
         Returns the (ceiling of the) rectangle of map tiles currently
         contained in the Frame's view.  
-        TODO
+        TODO: viewRectTiles()
         """
         pass
 
@@ -250,32 +253,42 @@ class MapFrame(shader.Frame):
         """
         Causes the L{MapFrame} to only display L{Tile}s of the map that are within
         the field of view of the given L{MapObject}, which must be located
-        somewhere in the currently displayed map.
+        somewhere in the currently displayed map. 
 
-        @param obj The L{MapObject} to whose field of view to bind the
-        display.
-        @param radius The radius to use in calculating the object's field of view.
-        @param remember Whether to continue displaying tiles that were at one
+        @param obj: The L{MapObject} to whose field of view to bind the
+                   display. Pass C{None} to deactivate any current binding.
+        @param radius: The radius to use in calculating the object's field of view.
+        @param remember: Whether to continue displaying tiles that were at one
         time in C{obj}'s field of view but are no longer. TODO: a way to
         display remembered tiles differently than currently visible ones.
         """
         self.__map.unmonitorNearby(self.__fovObj)
 
         self.__fovObj = obj
-        self.__fovRad = radius
+        self.__fovRad = (obj and radius) or None
         self.__dirtyFovQuads = set()
-        self.__visibleTiles.clear()
+        self.visibleTiles.clear()
+        self.rememberedTiles.clear()
         self.__rememberSeenTiles = remember
         if obj:
             self.__disableAll()
             self.__map.monitorNearby(obj, radius, self.__touchQuadrant,
                     self.__blocksLOS)
             self.__touchQuadrant(obj, obj, obj.pos)
+        else:
+            self.__enableAll()
 
     def __disableAll(self):
-        for x in xrange(self.__map.cols):
-            for y in xrange(self.__map.rows):
-                self.__grid.disable(x, y)
+        if self.__map:
+            for x in xrange(self.__map.cols):
+                for y in xrange(self.__map.rows):
+                    self.__grid.disable(x, y)
+
+    def __enableAll(self):
+        if self.__map:
+            for x in xrange(self.__map.cols):
+                for y in xrange(self.__map.rows):
+                    self.__grid.enable(x, y)
 
     def __blocksLOS(self, obj):
         #parole.debug('checking if blocks los')
@@ -308,9 +321,10 @@ class MapFrame(shader.Frame):
         #parole.debug('dirty fov quads: %s', self.__dirtyFovQuads)
         newVisibleTiles = set()
         def fovVisit(x, y):
-            if (x,y) not in self.__visibleTiles:
+            if (x,y) not in self.visibleTiles:
                 if self.__rememberSeenTiles:
                     self.__grid[x,y] = self.__map[x,y]
+                    self.rememberedTiles.add((x,y))
                 else:
                     self.__grid.enable(x, y)
             newVisibleTiles.add((x,y))
@@ -318,14 +332,37 @@ class MapFrame(shader.Frame):
         self.__map.fieldOfView(self.__fovObj.pos, self.__fovRad, fovVisit,
                 quadrants=self.__dirtyFovQuads)
 
-        for (x,y) in self.__visibleTiles - newVisibleTiles:
+        for (x,y) in self.visibleTiles - newVisibleTiles:
             if self.__rememberSeenTiles:
+                self.__map[x,y].clearFrozenShader()
                 self.__grid[x,y] = self.__map[x,y].frozenShader()
             else:
                 self.__grid.disable(x, y)
 
-        self.__visibleTiles = newVisibleTiles
+        self.visibleTiles = newVisibleTiles
         self.__dirtyFovQuads.clear()
+
+    def inFOV(self, tile):
+        """
+        If the view is currently bound to a field of view (see
+        L{bindVisibilityToFOV}, returns C{True} if the given tile is currently
+        visible. If the view is not bound, returns C{True} always.
+        """
+        if self.__fovObj:
+            return (tile.col, tile.row) in self.visibleTiles
+        return True
+
+    def remembered(self, tile):
+        """
+        If the view is currently bound to a field of view (see
+        L{bindVisibilityToFOV}, returns C{True} if the given tile is
+        "remembered". If a tile is in FOV (L{inFOV}) it is also remembered.
+        If the view is not bound, returns C{True} always.
+        """
+        if self.__fovObj:
+            return self.__rememberSeenTiles and \
+                   (tile.col, tile.row) in self.rememberedTiles
+        return True
 
     def selectTile(self, posOrX, y=None):
         """
@@ -480,6 +517,12 @@ class MapFrame(shader.Frame):
         if annotation.reticle and annotation.reticle in \
                 annotation.tile.overlays:
             annotation.tile.removeOverlay(annotation.reticle)
+        # make sure the reticle disappears from unseen but remembered tiles
+        tile = annotation.tile
+        if (not self.inFOV(tile)) and (self.__rememberSeenTiles and \
+                self.remembered(tile)):
+            tile.clearFrozenShader()
+            self.__grid[tile.col,tile.row] = tile.frozenShader()
 
     def __placeAnnotation(self, tile, ann, rect):
         # Prepare the annotations list for this tile if necessary
@@ -499,6 +542,12 @@ class MapFrame(shader.Frame):
         reticle = ReticleOverlayShader(tile.size, rgb=ann.reticleRGB)
         tile.addOverlay(reticle)
         ann.reticle = reticle
+
+        # make sure the reticle appears on unseen but remembered tiles
+        if (not self.inFOV(tile)) and (self.__rememberSeenTiles and \
+                self.remembered(tile)):
+            tile.clearFrozenShader()
+            self.__grid[tile.col,tile.row] = tile.frozenShader()
 
         # and a line linking the annotation to the tile 
         tileRect = self.__grid.rectOf((tile.col, tile.row)).move(-ox, -oy)
@@ -780,6 +829,7 @@ class Tile(shader.Shader):
         # Returns the state of an instance for pickling
         state = super(Tile, self).__getstate__()
         state['overlays'] = {}
+        state['_Tile__frozenShader'] = None
         #del state['map']
         #parole.debug('Tile.__getstate__: %r', state)
         return state
@@ -988,8 +1038,12 @@ class Tile(shader.Shader):
     def frozenShader(self):
         if self.__frozenShader:
             return self.__frozenShader
+        self.update()
         self.__frozenShader = shader.SurfacePass(self.image)
         return self.__frozenShader
+
+    def clearFrozenShader(self):
+        self.__frozenShader = None
 
     def addOverlay(self, sdr, pos=None):
         self.overlays[sdr] = pos
