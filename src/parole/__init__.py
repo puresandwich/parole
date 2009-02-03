@@ -1,5 +1,5 @@
-#Parole Artful Roguelike Engine
-#Copyright (C) 2006 Max Bane
+#Parole Advanced Roguelike Engine
+#Copyright (C) 2006-2009 Max Bane
 #
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License
@@ -16,7 +16,7 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-Parole is the Python Agentful Roguelike Engine, a framework in 
+Parole is the Python Advanced Roguelike Engine, a framework in 
 U{Python<http://www.python.org>} for use with U{PyGame<http://www.pygame.org>}
 to create graphical, discrete-event, agent-based simulations in the 
 U{Roguelike<http://roguebasin.roguelikedevelopment.org>} genre.
@@ -34,7 +34,7 @@ TODO.
 
 @author: Max Bane
 @contact: max.bane@gmail.com
-@copyright: Copyright 2006, 2007 Max Bane.
+@copyright: Copyright 2006-2009 Max Bane.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License

@@ -1,5 +1,5 @@
-#Parole Artful Roguelike Engine
-#Copyright (C) 2006 Max Bane
+#Parole Advanced Roguelike Engine
+#Copyright (C) 2006-2009 Max Bane
 #
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License
@@ -69,11 +69,10 @@ except:
 def panic(msg):
     """
     Prints the given message to standard output, logs it at level CRITICAL,
-    then instructs the current process to exit. Does not give Parole a chance
-    to shutdown properly.
+    then instructs the current process to exit (by raising a C{SystemExit}
+    exception). Does not give Parole a chance to shutdown properly.
     
-    @param msg: The message string to print to standard output before ending
-    the process.
+    @param msg: The message string to print and log before ending the process.
     """
 
     print msg
