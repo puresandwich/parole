@@ -1,4 +1,8 @@
 """
+Generic implementation of precise permissive field of view. This is Aaron
+MacDonald's python implemention, as published on Roguebasin. The original
+copyright notice follows.
+
     Author:         Aaron MacDonald
     Date:           June 14, 2007
 
@@ -13,8 +17,8 @@
     included.
     This code is released without warranty.
 
-    Modifications:
-        05/18/08 - Added quadrants keyword arg. -MB
+Some modifications have been made for use in Parole:
+    - Added quadrants keyword arg to L{fieldOfView}.
 """
 
 import copy, math
@@ -22,38 +26,38 @@ import copy, math
 def fieldOfView(startX, startY, mapWidth, mapHeight, radius, \
   funcVisitTile, funcTileBlocked, quadrants=None, circular=True):
     """
-        Determines which coordinates on a 2D grid are visible from a
-        particular coordinate.
+    Determines which coordinates on a 2D grid are visible from a
+    particular coordinate.
 
-        startX, startY:         The (x, y) coordinate on the grid that
-                                is the centre of view.
+    startX, startY:         The (x, y) coordinate on the grid that
+                            is the centre of view.
 
-        mapWidth, mapHeight:    The maximum extents of the grid.  The
-                                minimum extents are assumed to be both
-                                zero.
+    mapWidth, mapHeight:    The maximum extents of the grid.  The
+                            minimum extents are assumed to be both
+                            zero.
 
-        radius:                 How far the field of view may extend
-                                in either direction along the x and y
-                                axis.
+    radius:                 How far the field of view may extend
+                            in either direction along the x and y
+                            axis.
 
-        funcVisitTile:          User function that takes two integers
-                                representing an (x, y) coordinate.  Is
-                                used to "visit" visible coordinates.
+    funcVisitTile:          User function that takes two integers
+                            representing an (x, y) coordinate.  Is
+                            used to "visit" visible coordinates.
 
-        funcTileBlocked:        User function that takes two integers
-                                representing an (x, y) coordinate.
-                                Returns True if the coordinate blocks
-                                sight to coordinates "behind" it.
+    funcTileBlocked:        User function that takes two integers
+                            representing an (x, y) coordinate.
+                            Returns True if the coordinate blocks
+                            sight to coordinates "behind" it.
 
-        quadrants:              A list containing any combination of any
-                                number of the strings 'ne', 'se', 'sw', 'nw',
-                                indicating which quadrants of the field of
-                                view to process. If None, defaults to all
-                                quadrants.
-        
-        circular:               Boolean indicating whether the field of view
-                                should be circular or square (default
-                                circular).
+    quadrants:              A list containing any combination of any
+                            number of the strings 'ne', 'se', 'sw', 'nw',
+                            indicating which quadrants of the field of
+                            view to process. If None, defaults to all
+                            quadrants.
+    
+    circular:               Boolean indicating whether the field of view
+                            should be circular or square (default
+                            circular).
     """
 
     quadrants = quadrants or ['ne','se','sw','nw']

@@ -4,5 +4,5 @@ all:
 api:
 	rm -rf ../doc/api
 	mkdir ../doc/api
-	epydoc -vo ../doc/api parole
+	epydoc -vo ../doc/api --exclude=parole.config parole
 
