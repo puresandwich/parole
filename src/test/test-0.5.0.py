@@ -426,6 +426,29 @@ def makeMap3():
 def message(text):
     data['msg3Shader'].text = text
 
+def messageBox(text, align='center'):
+    font = parole.resource.getFont("fonts/Arial.ttf", 14)
+    block = parole.shader.TextBlockPass(font, (255,255,255),
+            wrap_width=274, bg_rgb=(0,64,128), align=align, wrap='word')
+    block.text = text
+    block.update()
+    sdr = parole.shader.Shader("FrameContents", 
+            (block.width+20, block.height+20))
+    sdr.addPass(parole.shader.ColorField((0,64,128), sdr.size))
+    sdr.addPass(block, (10,10))
+    mbox = parole.shader.Frame((parole.shader.VerticalBevel((0,0,0), 
+        (128,128,128), (255,255,255),1, 2, 1),
+        parole.shader.VerticalBevel((0,0,0), (128,129,128), (255,255,255), 1, 2, 1),
+        parole.shader.HorizontalBevel((255,255,255), (128,128,128), (0,0,0), 1,
+            2, 1),
+        parole.shader.HorizontalBevel((255,255,255), (128,128,128), (0,0,0), 1,
+            2, 1),
+        None,None,None,None),
+        contents=[sdr])
+    mbox.update()
+    parole.display.scene.add(mbox, pos=mbox.centeredPos())
+    return mbox
+
 class AimOverlay(parole.map.AsciiTile):
     def __init__(self):
         super(AimOverlay, self).__init__('*', (64,32,255))
@@ -474,7 +497,6 @@ def t_mapgen():
         elif command in ['southwest', 'treesouthwest']:
             displacement = (-1,1)
         elif command in ('examine', 'zap'):
-            # TODO: examine and zap use diff colored annotes/reticles
             if lookAnnote:
                 if zapping:
                     zapping = False
@@ -490,12 +512,19 @@ def t_mapgen():
                 lookAnnote = None
             else:
                 playerTile = map[player.pos]
-                lookAnnote = frame.annotate(playerTile,
-                    'You see: %s.' % ', '.join([str(x) for x in playerTile]))
                 if command == 'zap':
                     zapping = True
+                    lookAnnote = frame.annotate(playerTile,
+                        'Zap: %s.' % ', '.join([str(x) for x in playerTile]),
+                        lineRGB=(64,32,255), reticleRGB=(64,32,255))
+                else:
+                    lookAnnote = frame.annotate(playerTile,
+                        'You see: %s.' % ', '.join([str(x) for x in \
+                            playerTile]))
             return
         elif command == 'save':
+            mbox = messageBox('Saving...')
+            parole.display.update()
             time = parole.time()
             data['mapframe'].setMap(None)
             f = bz2.BZ2File('mapsave.sav', 'w')
@@ -503,10 +532,15 @@ def t_mapgen():
             cPickle.dump(saveData, f, protocol=-1)
             f.close()
             data['mapframe'].setMap(map)
+            if data['fov']:
+                data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
             time = (parole.time() - time) or 1
             parole.info('Map save time: %dms', time)
+            parole.display.scene.remove(mbox)
             return
         elif command == 'restore':
+            mbox = messageBox('Restoring...')
+            parole.display.update()
             if lookAnnote:
                 data['mapframe'].removeAnnotation(lookAnnote)
                 lookAnnote = None
@@ -517,8 +551,18 @@ def t_mapgen():
             #sd = cPickle.load(f)
             f.close()
             data['mapframe'].setMap(map)
+            if data['fov']:
+                data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
             time = (parole.time() - time) or 1
             parole.info('Map restore time: %dms', time)
+            parole.display.scene.remove(mbox)
+            return
+        elif command == 'toggle fov':
+            if data['fov']:
+                data['mapframe'].bindVisibilityToFOV(None, None)
+            elif player:
+                data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
+            data['fov'] = not data['fov']
             return
             
         if data['msg3Shader'].text:
@@ -540,10 +584,12 @@ def t_mapgen():
                 if map.traceLOS(player.pos, newPos, addAimOverlay) is \
                         lookTile:
                     lookAnnote = frame.annotate(lookTile,
-                        'Zap: %s.' % ', '.join([str(x) for x in lookTile]))
+                        'Zap: %s.' % ', '.join([str(x) for x in lookTile]),
+                        lineRGB=(64,32,255), reticleRGB=(64,32,255))
                 else:
                     lookAnnote = frame.annotate(lookTile,
-                        'Not in LOS.')
+                        'Not in LOS.',
+                        lineRGB=(64,32,255), reticleRGB=(64,32,255))
             else:
                 lookAnnote = frame.annotate(lookTile,
                     'You see: %s.' % ', '.join([str(x) for x in lookTile]))
@@ -597,6 +643,7 @@ def t_mapgen():
             #pickle.dump(map, open('map.pkl', 'w'))
             data['mapframe'].setMap(map)
             #data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
+            data['fov'] = False
         elif command == "makeMap2":
             map = makeMap2()
             data['mapframe'].setMap(map)
