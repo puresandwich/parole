@@ -5,7 +5,7 @@
 Parole is written in, and requires, [http://python.org Python] version 2.5. It is not yet tested or supported with Python 2.6, and is certain not to work with 3.0.
 
 In addition, Parole requires the following libraries to be installed:
-	* [http://pygame.org pygame] version 1.8.1+, which in turn is built on (and depending on your platfor, probably comes with):
+	* [http://pygame.org pygame] version 1.8.1+, which in turn is built on (and depending on your platform, probably comes with):
 		* [http://libsdl.org SDL] 1.2+ and the usual SDL packages (sdl_image, etc.)
 
 Parole also optionally (and automatically) works with the following:
