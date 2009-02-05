@@ -282,13 +282,15 @@ class MapFrame(shader.Frame):
         if self.__map:
             for x in xrange(self.__map.cols):
                 for y in xrange(self.__map.rows):
-                    self.__grid.disable(x, y)
+                    #self.__grid.disable(x, y)
+                    self.__grid[x,y] = self.__map[x,y].overlayShader()
 
     def __enableAll(self):
         if self.__map:
             for x in xrange(self.__map.cols):
                 for y in xrange(self.__map.rows):
-                    self.__grid.enable(x, y)
+                    #self.__grid.enable(x, y)
+                    self.__grid[x,y] = self.__map[x,y]
 
     def __blocksLOS(self, obj):
         #parole.debug('checking if blocks los')
@@ -322,11 +324,9 @@ class MapFrame(shader.Frame):
         newVisibleTiles = set()
         def fovVisit(x, y):
             if (x,y) not in self.visibleTiles:
-                if self.__rememberSeenTiles:
                     self.__grid[x,y] = self.__map[x,y]
-                    self.rememberedTiles.add((x,y))
-                else:
-                    self.__grid.enable(x, y)
+                    if self.__rememberSeenTiles:
+                        self.rememberedTiles.add((x,y))
             newVisibleTiles.add((x,y))
 
         self.__map.fieldOfView(self.__fovObj.pos, self.__fovRad, fovVisit,
@@ -337,7 +337,9 @@ class MapFrame(shader.Frame):
                 self.__map[x,y].clearFrozenShader()
                 self.__grid[x,y] = self.__map[x,y].frozenShader()
             else:
-                self.__grid.disable(x, y)
+                # but what about overlays?
+                #self.__grid.disable(x, y)
+                self.__grid[x,y] = self.__map[x,y].overlayShader()
 
         self.visibleTiles = newVisibleTiles
         self.__dirtyFovQuads.clear()
@@ -519,10 +521,12 @@ class MapFrame(shader.Frame):
             annotation.tile.removeOverlay(annotation.reticle)
         # make sure the reticle disappears from unseen but remembered tiles
         tile = annotation.tile
-        if (not self.inFOV(tile)) and (self.__rememberSeenTiles and \
-                self.remembered(tile)):
-            tile.clearFrozenShader()
-            self.__grid[tile.col,tile.row] = tile.frozenShader()
+        if not self.inFOV(tile):
+            if self.__rememberSeenTiles and self.remembered(tile):
+                tile.clearFrozenShader()
+                self.__grid[tile.col,tile.row] = tile.frozenShader()
+            else:
+                self.__grid[tile.col,tile.row] = tile.overlayShader()
 
     def __placeAnnotation(self, tile, ann, rect):
         # Prepare the annotations list for this tile if necessary
@@ -543,11 +547,14 @@ class MapFrame(shader.Frame):
         tile.addOverlay(reticle)
         ann.reticle = reticle
 
-        # make sure the reticle appears on unseen but remembered tiles
-        if (not self.inFOV(tile)) and (self.__rememberSeenTiles and \
-                self.remembered(tile)):
-            tile.clearFrozenShader()
-            self.__grid[tile.col,tile.row] = tile.frozenShader()
+        # handle out of view tiles
+        if not self.inFOV(tile):
+            if self.__rememberSeenTiles and self.remembered(tile):
+                # make sure the reticle appears on unseen but remembered tiles
+                tile.clearFrozenShader()
+                self.__grid[tile.col,tile.row] = tile.frozenShader()
+            else:
+                self.__grid[tile.col,tile.row] = tile.overlayShader()
 
         # and a line linking the annotation to the tile 
         tileRect = self.__grid.rectOf((tile.col, tile.row)).move(-ox, -oy)
@@ -700,6 +707,11 @@ class MapObject(object):
                       tile containing it. This affects both FOV and LOS
                       calculations performed by the L{Map2D} containing the
                       object.
+    @type blocksMove: C{bool}
+    @param blocksMove: Whether this object blocks movement through the
+                      tile containing it. No engine code is affected by this,
+                      but it is included as most user code will want something
+                      like it for their L{MapObject}s.
     """
     
     layer = 0
@@ -968,14 +980,14 @@ class Tile(shader.Shader):
 
     def clear(self):
         """
-        Clears the contents of this C{Tile}.
+        Clears the contents of this L{Tile}.
         """
         for obj in list(self.contents):
             self.remove(obj)
         
     def update(self, parent=None):
         """
-        Implements C{Shader.update}. For C{set.update}, use C{Tile.updateSet}.
+        Implements L{Shader.update}.
         """
         # avoids name conflict with set.update
         if self.dirty:
@@ -984,8 +996,8 @@ class Tile(shader.Shader):
 
     def updateContents(self, otherSet):
         """
-        Updates the contents of the C{Tile} to be the union of its contents with
-        those of another C{set}.
+        Updates the contents of the L{Tile} to be the union of its contents with
+        those of the given C{set} of L{MapObject}s.
         """
         #set.update(self, otherSet)
         self.contents.update(otherSet)
@@ -996,7 +1008,7 @@ class Tile(shader.Shader):
         C{blocksLOS} attribute is C{True}.
         """
         for obj in self:
-            if self.blocksLOS:
+            if obj.blocksLOS:
                 return True
         return False
 
@@ -1006,7 +1018,7 @@ class Tile(shader.Shader):
         C{blocksMove} attribute is C{True}.
         """
         for obj in self:
-            if self.blocksMove:
+            if obj.blocksMove:
                 return True
         return False
 
@@ -1019,7 +1031,7 @@ class Tile(shader.Shader):
 
     def removeLight(self, rgb, intensity):
         """
-        Equivalend to C{Tile.addLight(rgb, -intensity)}.
+        Equivalent to C{Tile.addLight(rgb, -intensity)}.
         """
         self.addLight(rgb, -intensity)
 
@@ -1036,6 +1048,13 @@ class Tile(shader.Shader):
             o.applyLight(availRGB)
 
     def frozenShader(self):
+        """
+        Get a "frozen" L{Shader} of this tile's appearance. For use, e.g., when
+        displaying an out-of-FOV tile as it was last remembered. The result is
+        memoized until L{clearFrozenShader} is called.
+
+        @return: A L{Shader} object.
+        """
         if self.__frozenShader:
             return self.__frozenShader
         self.update()
@@ -1043,28 +1062,72 @@ class Tile(shader.Shader):
         return self.__frozenShader
 
     def clearFrozenShader(self):
+        """
+        Clear the cached L{Shader} returned by L{frozenShader}.
+        """
         self.__frozenShader = None
 
     def addOverlay(self, sdr, pos=None):
+        """
+        Adds a L{Shader} to be displayed as an overlay on this tile.
+
+        @param sdr: The L{Shader} to add as an overlay.
+        @param pos: The positional offset at which to display the overlay
+                    shader.
+        @type pos:  C{(x,y)}-tuple.
+        """
         self.overlays[sdr] = pos
         self.addPass(sdr, pos=pos)
 
     def removeOverlay(self, sdr):
+        """
+        Removes a previously added overlay L{Shader}.
+        """
         del self.overlays[sdr]
         self.remPass(sdr)
 
     def clearOverlays(self):
+        """
+        Removes all previously added overlay L{Shader}s.
+        """
         self.remPass(self.overlays)
         self.overlays.clear()
+
+    def overlayShader(self):
+        """
+        Returns a L{Shader} containing all of the overlays on this L{Tile}.
+        """
+        s = parole.shader.Shader('overlayShader', self.size)
+        for p in self.passes:
+            if p in self.overlays:
+                s.addPass(p, pos=self.overlays[p])
+        return s
         
 #==============================================================================
 
 class Map2D(object):
     """
     A two-dimensional array of L{Tile} objects, along with varioius utility
-    methods.
+    methods for common tasks related to geometry, distance, field-of-view, and
+    line-of-sight. Individual tiles can be retrieved via C{__getitem__}, e.g.:
+
+        mapObject = Map2D('mapObject', (32,32))
+        x, y = 2, 16
+        xyTile = mapObject[x,y]
+
+    A L{Map2D} object can also be iterated over, which has the effect of
+    iterating through all the L{Tile}s contained in it, in column-major order.
     """
     def __init__(self, name, (cols, rows)):
+        """
+        Create a L{Map2D} instance with the given name and dimenions.
+
+        @param name: The name of this map, used for C{str} and C{repr}.
+        @type name: C{str}
+        @param (cols, rows): The number of columns and rows of L{Tile}s to be
+        contained by this map.
+        @type (cols, rows): C{tuple} of two C{int}s.
+        """
         self.name = name
         self.rows, self.cols = rows, cols
         
@@ -1087,11 +1150,6 @@ class Map2D(object):
     def __getitem__(self, (x,y)):
         return self.tiles[y][x]
 
-    def iterTiles(self):
-        for x in xrange(self.cols):
-            for y in xrange(self.rows):
-                yield self[x,y]
-
     def __iter__(self):
         return self.iterTiles()
 
@@ -1102,6 +1160,10 @@ class Map2D(object):
         return False
 
     def rect(self):
+        """
+        Returns a pygame C{Rect} object whose dimensions are that of this map,
+        in tiles.
+        """
         return pygame.Rect(0, 0, self.cols, self.rows)
 
     def dist(self, (x0,y0), (x1,y1)):
@@ -1117,35 +1179,78 @@ class Map2D(object):
         """
         return (y0 <= y1 and 'n' or 's') + (x0 >= x1 and 'e' or 'w')
 
+    def iterTiles(self):
+        """
+        Returns a generator yielding a sequence of all the L{Tile} objects in
+        this map, in column-major order. If you just need to iterate through the
+        tiles, C{for tile in mapObject} is equivalent to C{for tile in
+        mapObject.iterTiles()}.
+        """
+        for x in xrange(self.cols):
+            for y in xrange(self.rows):
+                yield self[x,y]
+
     def getRow(self, y):
+        """
+        Returns a list of the C{Tiles} in the given row of this map.
+        """
         return self.tiles[y]
         
     def tileAt(self, (x,y)):
+        """
+        Returns the L{Tile} object located in this map at the given coordinates.
+        Equivalent to C{self[x,y]}.
+
+        @param (x,y): The coordinates of the L{Tile} to return.
+        @type (x,y): C{tuple} of two C{int}s.
+        """
         return self.tiles[y][x]
     
     def add(self, (x,y), *objs):
+        """
+        Adds one or more L{MapObject}s to the L{Tile} at the given coordinates.
+        Equivalent to:
+
+            for obj in objs:
+                self[x,y].add(obj)
+
+        @param (x,y): The coordinates of the L{Tile} to add to.
+        @type (x,y): C{tuple} of two C{int}s.
+        """
         tile = self[x,y]
         for obj in objs:
             tile.add(obj)
+        return tile
+
+    def remove(self, (x,y), *objs):
+        """
+        Removes one or more L{MapObject}s from the L{Tile} at the given
+        coordinates. Equivalent to:
+
+            for obj in objs:
+                self[x,y].remove(obj)
+
+        @param (x,y): The coordinates of the L{Tile} to remove from.
+        @type (x,y): C{tuple} of two C{int}s.
+        """
+        tile = self[x,y]
+        for obj in objs:
+            tile.remove(obj)    
         return tile
 
     def onAdd(self, tile, obj):
         for (monObj, (dist, callback, condition)) in \
                 self.distMonObjs.iteritems():
             #parole.debug('add: checking %s nearby %s', obj, monObj)
+            condition = condition or (lambda x: True)
             if condition(obj) and self.dist(obj.pos, monObj.pos) <= dist:
                 self.dirtyDistMonObjs[monObj].add((obj, obj.pos))
     
-    def remove(self, (x,y), *objs):
-        tile = self[x,y]
-        for obj in objs:
-            tile.remove(obj)    
-        return tile
-
     def onRemove(self, tile, obj):
         for (monObj, (dist, callback, condition)) in \
                 self.distMonObjs.iteritems():
-            #parole.debug('add: checking %s nearby %s', obj, monObj)
+            #parole.debug('remove: checking %s nearby %s', obj, monObj)
+            condition = condition or (lambda x: True)
             if condition(obj) and self.dist(obj.pos, monObj.pos) <= dist:
                 self.dirtyDistMonObjs[monObj].add((obj, obj.pos))
     
@@ -1180,8 +1285,7 @@ class Map2D(object):
         if obj.parentTile not in self:
             raise ValueError('obj must be a MapObject contained by this Map.')
 
-        # FIXME wait, is this lambda pickleable?
-        self.distMonObjs[obj] = (dist, callback, condition or (lambda x: True))
+        self.distMonObjs[obj] = (dist, callback, condition)
         self.dirtyDistMonObjs[obj] = set()
 
     def unmonitorNearby(self, obj):

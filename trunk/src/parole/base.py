@@ -533,7 +533,7 @@ __logLevels = \
 }
 
 def __onConfigChange(conf):
-    global logFrameTime, printFrameTime
+    global __logFrameTime, __printFrameTime
     val = parole.conf.general.loglevel
     try:
         logging.root.setLevel(__logLevels[val])
@@ -541,8 +541,8 @@ def __onConfigChange(conf):
     except KeyError:
         error('Bad loglevel requested: %s', val)
 
-    __logFrameTime = parole.conf.general.logFrameTime
-    __printFrameTime = parole.conf.general.printFrameTime
+    __logFrameTime = int(parole.conf.general.logFrameTime)
+    __printFrameTime = int(parole.conf.general.printFrameTime)
     info('logFrameTime: %s', __logFrameTime)
     info('printFrameTime: %s', __printFrameTime)
     info('engineSplash: %s', parole.conf.general.engineSplash)

@@ -352,7 +352,7 @@ def makeMap1():
     player = Player()
     map[0,9].add(player)
 
-    map.setAmbientLight((255,255,255), 0.7)
+    map.setAmbientLight((255,255,255), 0.75)
 
     light = parole.map.LightSource(colors['Orange'], 1.0)
     #light.apply(map, (0,9))
@@ -591,8 +591,12 @@ def t_mapgen():
                         'Not in LOS.',
                         lineRGB=(64,32,255), reticleRGB=(64,32,255))
             else:
-                lookAnnote = frame.annotate(lookTile,
-                    'You see: %s.' % ', '.join([str(x) for x in lookTile]))
+                if data['mapframe'].inFOV(lookTile):
+                    lookAnnote = frame.annotate(lookTile,
+                        'You see: %s.' % ', '.join([str(x) for x in lookTile]))
+                else:
+                    lookAnnote = frame.annotate(lookTile,
+                        'You cannot see here.')
 
             return
 
