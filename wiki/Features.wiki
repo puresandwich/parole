@@ -20,7 +20,7 @@ Parole is meant to help you quickly write 2-dimensional, tile-based games, with 
     * Calls a user-supplied function, or steps through a user-supplied generator each frame.
     * Can switch at will between updating constantly (e.g., for animation), or polling for input events between updates (drastically reducing cpu usage).
   * Selective activation of engine features, divided into different submodules. 
-  * A central logging mechanism with four log levels.
+  * A central logging mechanism with four log levels, based on the standard library logging module.
   * A full-featured configuration system (built on Vinay Sajip's [http://www.red-dove.com/python_config.html config] module) with a powerful configuration file syntax, used by the engine for its own configuration, and usable by the user for game-specific configuration.
     * Configuration changes can be made in-game, with immediate results.
   * An in-game, interactive python console.
