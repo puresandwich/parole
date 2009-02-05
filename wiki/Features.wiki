@@ -14,7 +14,7 @@ Parole also optionally (and automatically) works with the following:
 = Features =
 _(List compilation in progress)_
 
-Parole is meant to help you quickly write 2-dimensional, tile-based games, with special emphasis on games in the [http://roguebasin.roguelikedevelopment.org Roguelike] genre. It is meant to be useful without getting in your way; no needless wrapping or replacement of functionality that Pygame or the Python standard library do perfectly well.
+Parole is meant to help you quickly write 2-dimensional, tile-based games, with special emphasis on games in the [http://roguebasin.roguelikedevelopment.org Roguelike] genre. Its aim is to be useful without getting in your way; no needless wrapping or replacement of functionality that Pygame or the Python standard library do perfectly well.
 
   * A central event-based frame loop.
     * Calls a user-supplied function, or steps through a user-supplied generator each frame.
