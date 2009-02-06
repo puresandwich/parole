@@ -18,7 +18,7 @@
 """
 Parole is the Python Advanced Roguelike Engine, a framework in 
 U{Python<http://www.python.org>} for use with U{PyGame<http://www.pygame.org>}
-to create graphical, discrete-event, agent-based simulations in the 
+to create graphical, discrete event, agent-based simulations in the 
 U{Roguelike<http://roguebasin.roguelikedevelopment.org>} genre.
 
 Introduction
@@ -34,6 +34,9 @@ TODO.
 
 @author: Max Bane
 @contact: max.bane@gmail.com
+@newfield web: Website, Websites
+@web: Project home: U{http://parole.googlecode.com}
+@web: Online API Docs: U{http://maxbane.com/parole_api} [TODO]
 @copyright: Copyright 2006-2009 Max Bane.
 
 This program is free software; you can redistribute it and/or

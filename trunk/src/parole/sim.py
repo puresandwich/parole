@@ -16,7 +16,9 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-Base module pydocs.
+A small framework for discrete, event-driven simulations. Currently
+unimplemented.
+@todo 0.6.0: Will be implemented for version 0.6.0.
 """
 
 import logging
@@ -26,9 +28,7 @@ import parole, config
 
 def init():
     """
-    init() -> None
-    
-    Initializes the input module. Automatically called during engine startup -
+    Initializes the C{sim} module. Automatically called during engine startup -
     most user code shouldn't need this function.
     """
     def onConfChange(key, val):

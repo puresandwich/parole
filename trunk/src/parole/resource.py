@@ -16,38 +16,37 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-The Parole resource module provides a resource management system vaguely
-inspired by that of the Quake 3 engine.
+A resource management system vaguely inspired by that of the Quake 3 engine.
 
 In this system, all of the resources needed by a game (art, sounds, video,
 text, whatever) are collected together into "packages" which reside in the
-game's "gamedir" (specified by config option "general.gamedir"). Each package
-is a directory or a Zip archive whose name must end with the suffix ".res"
-(by default; controlled by config option "resource.packsuffix").
+game's "gamedir" (specified by config option C{general.gamedir}). Each package
+is a directory or a Zip archive whose name must end with the suffix C{.res}
+(by default; controlled by config option C{resource.packsuffix}).
 
 Upon engine startup, all of the packages under the gamedir are identified and
 scanned. Together, their contents constitute all of the resources that the
 game has access to. An individual resource is identified by its name, which
-should correspond to the actual path + filename of some file contained in one
-of the packages, and can be retrieved with the getResource() function. If a
+corresponds to the actual path + filename of some file contained in one
+of the packages, and can be retrieved with the L{getResource} function. If a
 resource name is contained by more than one package, the alphabetically latest
 package takes precedence. This allows one to easily patch a game's resources
 by simply adding a package whose name comes alphabetically later than any 
 existing ones - whatever resources it contains will effectively replace any
 copies in previous packages.
 
-The getResource() function caches the resources it returns, so that future
+The L{getResource} function caches the resources it returns, so that future
 requests for the same resource will not result in an actual disk-read. If
 a resource is no longer needed, its data can be cleared from the cache with
-the clearResource() function. Note that if any user code still has references
+the L{clearResource} function. Note that if any user code still has references
 to the data, it may not actually be freed from memory.
 
 The resource module also provides a number of convenience functions, like
-getTexture(), which both retrieves the bytes of the requested resource, and
-attempts to turn those bytes into a useful PyGame Surface object.
+L{getTexture}, which both retrieves the bytes of the requested resource, and
+attempts to turn those bytes into a useful PyGame C{Surface} object.
 
 It is possible to disallow directory packages through the config option
-"resource.allowdirs".
+C{resource.allowdirs}.
 """
 
 import pygame, parole, logging, os, zipfile, cStringIO, shader
@@ -97,11 +96,9 @@ def __onConfigChange(conf):
 
 def init():
     """
-    init() -> None
-    
     Initializes the resource module. Detects and loads all resource pakcages 
     in the gamedir directory. Automatically called during engine 
-    startup - user code shouldn't need to use this function.
+    startup -- user code shouldn't need to use this function.
     """
     global __gameDir, __inInit
     __inInit = True
@@ -152,12 +149,12 @@ def unload():
 
 def getPackages():
     """
-    getPackages() -> [(pkgname, isArch), ...]
-
     Returns a list of (pkgname, isArch) pairs for each loaded resource package,
     where isArch indicates whether the associated package is a zip archive or
     not (in which case, it's a directory). The packages are listed in the order
     that they are searched for resources: reverse alphabetic.
+
+    @return: C{[(pkgname, isArch), ...]}
     """
     return [(pkgname, f is not None) for (pkgname, f, g) in packages]
 
@@ -216,14 +213,19 @@ def __getResourceFromArch(path, archf, binary=False):
 
 def getResource(name, binary=False):
     """
-    getResource(name, [binary]) -> str or None
-
     Attempts to retrieve the bytes of the given resource. If multiple packages
     contain the resource, the copy in the alphabetically latest package is
-    returned. Returns None if the given resource is not known by any package.
-    If binary is given and is True, then it will attempt to open the resource
-    in binary mode - this probably only has an effect if the file is in
-    a directory package. Resources from archive packages are always binary.
+    returned. Returns C{None} if the given resource is not known by any package.
+
+    @param name: The path + filename of the resource to retrieve.
+    @type name: C{str}
+    
+    @param binary: If C{True}, then an attempt will be made to open the resource
+    in binary mode. This probably only has an effect if the file is in a
+    directory package. Resources from archive packages are always binary.
+    @type binary: C{bool}
+    
+    @return: C{str} or C{None}
     """
     # see if we've already loaded this resource
     if name in __resTable:
@@ -255,13 +257,14 @@ def getResource(name, binary=False):
 
 def clearResource(name):
     """
-    clearResource(name) -> None
-
     Clears the cache of the given resource. Any future retrieval of the 
     resource will result in an actual disk read. The resource may not actually
     be freed from memory if any user code still contains references to it.
     Furthermore, it won't actually be freed until the next sweep of Python's
     garbage collector.
+
+    @param name: The path + filename of the resource to clear from the cache.
+    @type name: C{str}
     """
     logging.info('Clearing resource: %s', name)
     if name in __resTable: 
@@ -273,8 +276,6 @@ def clearResource(name):
 
 def clearAll():
     """
-    clearAll() -> None
-
     Clears all loaded resources from the cache.
     """
     logging.info('Clearing all resources')
@@ -284,10 +285,16 @@ def clearAll():
 
 def getTexture(name):
     """
-    getTexture(name) -> pygame.Surface or None
+    Attempts to retrieve the given texture resource as a PyGame C{Surface}
+    object.
 
-    Attempts to retrieve the given texture resource as a PyGame Surface object.
-    TODO: Return a dummy texture if not found.
+    @todo: Return a dummy texture if not found.
+
+    @return: C{pygame.Surface} or C{None}
+
+    @param name: The path + filename of the texture resource to retrieve. Must
+    name an image file in a format that PyGame can read (png, jpeg, tiff, etc.).
+    @type name: C{str}
     """
     # Return any cached copy of the texture surface object
     if name in __resTable:
@@ -324,10 +331,13 @@ def getTexture(name):
 
 def getSound(name):
     """
-    getSound(name) -> pygame.mixer.Sound or None
-
     Attempts to retrieve the given sound resource as a PyGame C{Sound} object.
     The file can either be an uncompressed WAV or an OGG file.
+
+    @return: C{pygame.mixer.Sound} or C{None}
+
+    @param name: The path + filename of the sound resource to retrieve. 
+    @type name: C{str}
     """
     # Return any cached copy of the texture surface object
     if name in __resTable:
@@ -363,9 +373,13 @@ def getSound(name):
 
 def getFont(name, size):
     """
-    getFont(name) -> pygame.font.Font or None
-
     Attempts to retrieve the given font resource as a PyGame Font object.
+
+    @return: C{pygame.font.Font} or C{None}
+
+    @param name: The path + filename of the font resource to retrieve. Must name
+    a font file in a format that PyGame can read (e.g., TrueType).
+    @type name: C{str}
     """
     # Return any cached copy of the font object
     if (name,size) in __resTable:
@@ -403,13 +417,16 @@ def getFont(name, size):
 
 def getShader(scriptName):
     """
-    getShader(name) -> parole.shader.Shader or None
+    Attempts to retrieve a L{Shader} object resource. 
+    
+    @param scriptName: 
+    Should name a resource that is a python script. The script should, upon
+    execution, create a global (to itself) object C{theShader}, which is
+    expected to be an instance of L{Shader}. This object is what is retrieved
+    and cached by this function.
+    @type scriptName: C{str}
 
-    Attempts to retrieve a Shader object resource. The name argument should
-    name a resource which is a python script. The script should, upon
-    execution, create a global (to itself) object "theShader", which is
-    expected to be an instance of parole.shader.Shader. This object is what
-    is retrieved and cached by this function.
+    @return: L{Shader} or C{None}
     """
     # Return any cached copy of the desired shader object
     if (scriptName, 'theShader') in __resTable:
@@ -430,14 +447,18 @@ def getShader(scriptName):
 
 def getShaderClass(scriptName):
     """
-    getShaderClass(name) -> parole.shader.Shader class object or None
-
     Attempts to retrieve the class of Shader object resource, useful for shader
-    "factories". The name argument should name a resource that is a python 
+    "factories". 
+    
+    @param scriptName:
+    Should name a resource that is a python 
     script. The script should, upon execution, create a global (to itself) 
-    object "theShader", which is expected to be an instance of 
-    parole.shader.Shader. This object's "__class__" attribute is what is 
+    object C{theShader}, which is expected to be an instance of 
+    L{Shader}. This object's C{__class__} attribute is what is 
     retrieved and cached by this function.
+    @type scriptName: C{str}
+
+    @return: class object of a subclass of L{Shader}, or C{None}
     """
     # piggy back off of getShader (more efficient in case we've already 
     # loaded the shader)
@@ -450,8 +471,6 @@ def getShaderClass(scriptName):
 
 def getObject(scriptName, objName):
     """
-    getFunction(scriptName, objName) -> object or None
-
     Retrieves a python object defined in the given python script 
     resource.
     """
@@ -498,7 +517,7 @@ def exportResource(name, destination):
     C{destination} should be the full path plus filname to which the
     byte-contents of the named resource should be copied.
 
-    This function can be useful for extracting a sound resource from an zip
+    This function can be useful for extracting a sound resource from a zip
     package and writing it to disk as a standalone file so that
     it can be used by C{pygame.mixer.music}, for instance.
     """

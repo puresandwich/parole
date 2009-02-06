@@ -16,11 +16,16 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-The L{Base} module provides the core functionality of the engine, providing
-facilities for loading other engine modules, reading and applying engine
-configurations, and for starting and stopping the main game loop, which
-performs the rendering and event-handling of each frame, and invokes a user
-callback implementing the game's frame-by-frame logic.
+Provides the core functionality of the engine. This includes facilities for
+loading other engine modules, reading and applying engine configurations, and
+for starting and stopping the main game loop, which performs the rendering and
+event-handling of each frame, and invokes a user callback implementing the
+game's frame-by-frame logic.
+
+Note that everything contained in the L{base} module is automatically imported
+into the top-level namespace of the L{parole} package, so, for instance, user
+code can simply call C{parole.startup(...)} rather than
+C{parole.base.startup(...)}.  
 """
 
 import logging, sys, copy_reg
@@ -30,9 +35,22 @@ from decorator import decorator
 
 # Version info
 developmentVersion = True
+"""
+True if this is not a released branch version of Parole.
+"""
+
 version = (0, 5, 0) # (major, minor, revision)
+"""
+The version number of this installation of Parole, expressed as a tuple of the
+C{(major, minor, revision)} integers.
+"""
+
 versionStr = '%s.%s.%s%s' % (version[0], version[1], version[2],
         developmentVersion and '-dev' or '')
+"""
+A human readable version string derived from L{version} and
+L{developmentVersion}.
+"""
 
 # Set up the root logger
 logging.basicConfig(level=logging.DEBUG,
@@ -41,22 +59,57 @@ logging.basicConfig(level=logging.DEBUG,
 
 # The engine-wide configuration object
 conf = None
+"""
+The engine-wide configuration object, instantiated by L{startup} upon reading
+the configuration file passed to it.
+"""
 
 __paroleShutdown = False
 __logFrameTime = False
 __printFrameTime = False
 
 #==============================================================================
+#{ Utilities
 
 # Engine log output functions, one for each log level.
-debug = logging.debug
-info = logging.info
-warn = logging.warn
-error = logging.error
+#debug = logging.debug
+#info = logging.info
+#warn = logging.warn
+#error = logging.error
+# unfortunately these don't show up in epydoc this way
+
+def debug(*args, **kwargs):
+    """
+    Logs a message at level C{DEBUG}. Arguments work exactly as they do for the
+    standard library's C{logging.debug}.
+    """
+    logging.debug(*args, **kwargs)
+def info(*args, **kwargs):
+    """
+    Logs a message at level C{INFO}. Arguments work exactly as they do for the
+    standard library's C{logging.info}.
+    """
+    logging.info(*args, **kwargs)
+def warn(*args, **kwargs):
+    """
+    Logs a message at level C{WARN}. Arguments work exactly as they do for the
+    standard library's C{logging.warn}.
+    """
+    logging.warn(*args, **kwargs)
+def error(*args, **kwargs):
+    """
+    Logs a message at level C{ERROR}. Arguments work exactly as they do for the
+    standard library's C{logging.error}.
+    """
+    logging.error(*args, **kwargs)
 
 #==============================================================================
 
 havePyGame = False
+"""
+C{True} if pygame was successfully imported; if C{False}, engine startup will
+fail.
+"""
 
 try:
     import pygame
@@ -66,19 +119,13 @@ except:
 
 #==============================================================================
 
-def panic(msg):
+def time():
     """
-    Prints the given message to standard output, logs it at level CRITICAL,
-    then instructs the current process to exit (by raising a C{SystemExit}
-    exception). Does not give Parole a chance to shutdown properly.
-    
-    @param msg: The message string to print and log before ending the process.
+    Returns the time in milliseconds since Parole startup. If L{startup} has
+    not yet been called, this always returns 0.
     """
 
-    print msg
-    logging.critical(str(msg))
-    info('PANIC - Goodbye!')
-    raise SystemExit
+    return pygame.time.get_ticks()
 
 #==============================================================================
     
@@ -90,16 +137,6 @@ class ParoleError(Exception):
     def __init__(self, *args):
         Exception.__init__(self, *args)
         
-class ParoleShutdown(ParoleError):
-    """
-    Raise this exception from game-code (i.e., from within or below the update
-    function passed to C{parole.startup}) to cause Parole to shutdown gracefully
-    at its earliest opportunity.
-    """
-
-    def __init__(self):
-        ParoleError.__init__(self, "Parole shutdown requested")
-
 #==============================================================================
 # Some useful decorators
 
@@ -197,37 +234,70 @@ class NotifyingConfig(config.Config):
 GeneralUpdateEvent = pygame.USEREVENT
 
 #==============================================================================
+#{ Engine Startup and Shutdown
 
 allModules = ['display', 'input', 'resource', 'shader', 'console', 'map']
+"""
+A list of the names of all engine modules that are available. The list of 
+requested modules passed to L{startup} must contain only names present in this.
+"""
 
 haveModule = dict(zip(allModules, (False,)*len(allModules)))
+"""
+A dictionary from module names to C{bool}s, indicating which modules were
+requested and intitialized on engine startup.
+"""
 
 def startup(configFile, updateFunc, caption='Parole', icon=None,
         modules=allModules, gen=False):
     """
-    Starts continuous execution of the Parole engine. configFile is the path to
-    configuration file to use (see parole.config). If caption is given, it is
-    the string that will be used as the title of the window used for parole's
-    display. If caption is not given, 'Parole' is used. 
+    Starts continuous execution of the Parole engine. 
+    
+    @param configFile: 
+    the path to the configuration file to use (see the L{parole} package
+    documentation for a description of the config file format). 
 
-    If given, modules is a list of parole submodules which the user intends to
-    use. It defaults to the global allModules, which requests all submodules to
-    be available. Upon startup, the engine intializes each requested submodule.
-    An will be raised if configFile tries to configure a module not requested
-    in modules, and engine behavior is undefined if any user code attempts to
-    use an uninitialized module. The global haveModule dictionary indicates
-    which submodules have been intialized.
+    @type configFile: C{str}
+    
+    @param caption: 
+    the string that will appear as the title of the window used for parole's
+    display. C{'Parole'} is the default. 
 
+    @type caption: C{str}
+
+    @param modules: 
+    a list of parole submodules which the user intends to use. It defaults to
+    the global L{allModules}, which requests all submodules to be available. Upon
+    startup, the engine intializes each requested submodule.  An exception will
+    be raised if C{configFile} tries to configure a module not requested in
+    C{modules}, and engine behavior is undefined if any user code attempts to use
+    an uninitialized module. After startup,  the global L{haveModule} dictionary
+    indicates which submodules have been intialized.
+
+    @type modules: C{list} of C{str}s
+
+    @param updateFunc:
     After initializing requested submodules, the engine enters its main frame
     loop, which processes events, updates the display and other submodules, and
-    invokes the user-supplied updateFunc once per frame. updateFunc can either
-    be a python callable object (with no required arguments), or a string which
-    names a script resource (see parole.resource) which defines a callable
-    object "updateFunc" in its global namespace (again, with no required
-    arguments). If updateFunc is a string, the resource submodule must be
-    requested. The implementation of updateFunc is the entry point for user
-    code in the engine, and is where all application-specific behavior
-    originates.
+    invokes the user-supplied C{updateFunc} once per frame.  The implementation
+    of updateFunc is the entry point for user code in the engine, and is where
+    all application-specific behavior originates.  
+    
+    C{updateFunc} can be supplied in one of three ways:
+        1. C{updateFunc} is a python callable object (with no required
+           arguments); it will be called once each frame.
+
+        2. C{updateFunc} is a string that names a script resource (see
+           L{parole.resource}) which defines a callable object C{updateFunc} in
+           its global namespace (again, with no required arguments). This object
+           will be called each frame. The resource submodule must be requested. 
+
+        3. C{updateFunc} is a generator object. Each frame, the engine will step
+           once through it (i.e., call its C{next()} method), rather than
+           calling it as a function. The engine pays no attention to the values,
+           if any, yielded by the generator. If the generator is ever exhausted
+           (raises C{StopIteration}), the engine will log a warning and proceed
+           to shut down.
     """
 
     global __paroleShutdown
@@ -452,6 +522,18 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # the engine in the same process, if desired.
 
 #==============================================================================
+
+class ParoleShutdown(ParoleError):
+    """
+    Raise this exception from game-code (i.e., from within or below the update
+    function passed to C{parole.startup}) to cause Parole to shutdown gracefully
+    at its earliest opportunity.
+    """
+
+    def __init__(self):
+        ParoleError.__init__(self, "Parole shutdown requested")
+
+#==============================================================================
     
 def shutdown():
     """
@@ -466,15 +548,22 @@ def shutdown():
     
 #==============================================================================
 
-def time():
+def panic(msg):
     """
-    Returns the time in milliseconds since Parole startup. If L{startup} has
-    not yet been called, this always returns 0.
+    Prints the given message to standard output, logs it at level C{CRITICAL},
+    then instructs the current process to exit (by raising a C{SystemExit}
+    exception). Does not give Parole a chance to shutdown properly.
+    
+    @param msg: The message string to print and log before ending the process.
     """
 
-    return pygame.time.get_ticks()
+    print msg
+    logging.critical(str(msg))
+    info('PANIC - Goodbye!')
+    raise SystemExit
 
 #==============================================================================
+#{ User Interface
 
 __continuousUpdates = 0
 
@@ -506,14 +595,48 @@ def popAnimation():
 #==============================================================================
 
 uiEventHandlers = []
+"""
+The stack of user interface event handlers, represented as a list, with the last
+element being the top of the stack.
+"""
 
 def pushUIEventHandler(handler):
+    """
+    Pushes a user interface event handler onto the stack of handlers. The stack
+    is maintained by the engine, and may only contain callable objects that
+    accept one argument. Each frame, the engine calls the object (or objects;
+    see below) at the top of the stack, passing it any PyGame event that was
+    received that frame. A stack is used in order to easily accomodate the
+    common case where "layers" of interfaces may be present, the topmost one
+    overriding those beneath it until it is removed; for example, an inventory
+    screen temporarily appearing over, and superceding the keypress-handling of,
+    the main gameplay screen.
+
+    @param handler: 
+    May be specified in one of two ways:
+        1. A simple C{callable} object to be invoked with a PyGame event object
+           as its argument. It will become the topmost, and only active UI event
+           handling function.
+        2. A tuple of C{callable} objects, each accepting a single PyGame event
+           object as an argument. These will become the I{simultaneously}
+           topmost, active UI event handling functions; each of them will
+           receive the same event object per frame, in the order in which they
+           are contained in the tuple.
+
+    @type handler: C{callable} or C{tuple} of C{callable}s
+    """
     debug('Pushing ui event handler: %s', handler)
     uiEventHandlers.append(handler)
 
 #==============================================================================
 
 def popUIEventHandler():
+    """
+    Removes the topmost user interface event handler from the stack of handlers
+    and returns it. The handler immediately below it on the stack will become
+    active. If there is no other handler on the stack, a warning will be logged,
+    and the program will cease to respond to any user input
+    """
     handler = uiEventHandlers.pop()
     debug('Popped ui event handler: %s', handler)
     if len(uiEventHandlers):
