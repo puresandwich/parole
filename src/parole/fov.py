@@ -1,7 +1,7 @@
 """
 Generic implementation of precise permissive field of view. This is Aaron
 MacDonald's python implemention, as published on Roguebasin. The original
-copyright notice follows.
+copyright notice follows.::
 
     Author:         Aaron MacDonald
     Date:           June 14, 2007
@@ -27,37 +27,57 @@ def fieldOfView(startX, startY, mapWidth, mapHeight, radius, \
   funcVisitTile, funcTileBlocked, quadrants=None, circular=True):
     """
     Determines which coordinates on a 2D grid are visible from a
-    particular coordinate.
+    particular coordinate and applies a user-provided function to each of them.
 
-    startX, startY:         The (x, y) coordinate on the grid that
-                            is the centre of view.
+    @param startX:          The x-coordinate on the grid that
+                            is the center of view.
+    @type startX: C{int}
 
-    mapWidth, mapHeight:    The maximum extents of the grid.  The
-                            minimum extents are assumed to be both
-                            zero.
+    @param startY:          The x-coordinate on the grid that
+                            is the center of view.
 
-    radius:                 How far the field of view may extend
+    @type startY: C{int}
+
+    @param mapWidth:        The maximum horizontal extent of the grid.  The
+                            minimum is assumed to be zero.
+
+    @type mapWidth: C{int}
+
+    @param mapHeight:       The maximum vertical extent of the grid.  The
+                            minimum is assumed to be zero.
+
+    @type mapHeight: C{int}
+
+    @param radius:          How far the field of view may extend
                             in either direction along the x and y
                             axis.
 
-    funcVisitTile:          User function that takes two integers
+    @type radius: C{int}
+
+    @param funcVisitTile:   User function that takes two integers
                             representing an (x, y) coordinate.  Is
                             used to "visit" visible coordinates.
+    @type funcVisitTile: C{callable}
 
-    funcTileBlocked:        User function that takes two integers
+    @param funcTileBlocked: User function that takes two integers
                             representing an (x, y) coordinate.
                             Returns True if the coordinate blocks
                             sight to coordinates "behind" it.
 
-    quadrants:              A list containing any combination of any
-                            number of the strings 'ne', 'se', 'sw', 'nw',
+    @type funcTileBlocked: C{callable}
+
+    @param quadrants:       A list containing any combination of any
+                            number of the strings C{'ne', 'se', 'sw', 'nw'},
                             indicating which quadrants of the field of
-                            view to process. If None, defaults to all
+                            view to process. If C{None}, defaults to all
                             quadrants.
+
+    @type quadrants: C{list} of C{str}s, or C{None}
     
-    circular:               Boolean indicating whether the field of view
+    @param circular:        Boolean indicating whether the field of view
                             should be circular or square (default
                             circular).
+    @type circular: C{bool}
     """
 
     quadrants = quadrants or ['ne','se','sw','nw']

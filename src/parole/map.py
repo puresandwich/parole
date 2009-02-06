@@ -1109,7 +1109,7 @@ class Map2D(object):
     """
     A two-dimensional array of L{Tile} objects, along with varioius utility
     methods for common tasks related to geometry, distance, field-of-view, and
-    line-of-sight. Individual tiles can be retrieved via C{__getitem__}, e.g.:
+    line-of-sight. Individual tiles can be retrieved via C{__getitem__}, e.g.::
 
         mapObject = Map2D('mapObject', (32,32))
         x, y = 2, 16
@@ -1124,9 +1124,12 @@ class Map2D(object):
 
         @param name: The name of this map, used for C{str} and C{repr}.
         @type name: C{str}
-        @param (cols, rows): The number of columns and rows of L{Tile}s to be
+        @param cols: The number of columns of L{Tile}s to be
         contained by this map.
-        @type (cols, rows): C{tuple} of two C{int}s.
+        @type cols : C{int}
+        @param rows: The number of rows of L{Tile}s to be
+        contained by this map.
+        @type rows: C{int}
         """
         self.name = name
         self.rows, self.cols = rows, cols
@@ -1201,21 +1204,25 @@ class Map2D(object):
         Returns the L{Tile} object located in this map at the given coordinates.
         Equivalent to C{self[x,y]}.
 
-        @param (x,y): The coordinates of the L{Tile} to return.
-        @type (x,y): C{tuple} of two C{int}s.
+        @param x: The x-coordinate (column) of the L{Tile} to return.
+        @type x: C{int}
+        @param y: The y-coordinate (row) of the L{Tile} to return.
+        @type y: C{int}.
         """
         return self.tiles[y][x]
     
     def add(self, (x,y), *objs):
         """
         Adds one or more L{MapObject}s to the L{Tile} at the given coordinates.
-        Equivalent to:
+        Equivalent to:::
 
             for obj in objs:
                 self[x,y].add(obj)
 
-        @param (x,y): The coordinates of the L{Tile} to add to.
-        @type (x,y): C{tuple} of two C{int}s.
+        @param x: The x-coordinate (column) of the L{Tile} to add to.
+        @type x: C{int}
+        @param y: The y-coordinate (row) of the L{Tile} to add to.
+        @type y: C{int}.
         """
         tile = self[x,y]
         for obj in objs:
@@ -1225,13 +1232,15 @@ class Map2D(object):
     def remove(self, (x,y), *objs):
         """
         Removes one or more L{MapObject}s from the L{Tile} at the given
-        coordinates. Equivalent to:
+        coordinates. Equivalent to:::
 
             for obj in objs:
                 self[x,y].remove(obj)
 
-        @param (x,y): The coordinates of the L{Tile} to remove from.
-        @type (x,y): C{tuple} of two C{int}s.
+        @param x: The x-coordinate (column) of the L{Tile} to remove from.
+        @type x: C{int}
+        @param y: The y-coordinate (row) of the L{Tile} to remove from.
+        @type y: C{int}.
         """
         tile = self[x,y]
         for obj in objs:

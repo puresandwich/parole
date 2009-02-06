@@ -16,7 +16,7 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-This module provides a convenient dictionary mapping from human-readable
+Contains a convenient dictionary from human-readable
 color name strings to RGB tuples.
 """
 
