@@ -24,7 +24,7 @@ from pygame import Rect
 from colornames import colors
 import gc, random, math
 import fov, perlin
-from Numeric import array
+#from Numeric import array
 from shader import clampRGB
 
 #==============================================================================
@@ -1134,8 +1134,10 @@ class Map2D(object):
         self.name = name
         self.rows, self.cols = rows, cols
         
-        self.tiles = array([array([Tile(self, (col,row)) for \
-                col in range(cols)]) for row in range(rows)])
+        #self.tiles = array([array([Tile(self, (col,row)) for \
+        #        col in range(cols)]) for row in range(rows)])
+        self.tiles = [[Tile(self, (col,row)) for \
+                col in range(cols)] for row in range(rows)]
             
         self.ambientRGB = (0,0,0)
         self.ambientIntensity = 0
