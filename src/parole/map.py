@@ -24,7 +24,6 @@ from pygame import Rect
 from colornames import colors
 import gc, random, math
 import fov, perlin
-#from Numeric import array
 from shader import clampRGB
 
 #==============================================================================
@@ -905,12 +904,14 @@ class Tile(shader.Shader):
             self.__resetPasses()
 
     def __resetPasses(self):
+        # FIXME: this should also get called when potential sources of
+        # backgrounds change in the tile
         self.clearPasses()
 
         # FIXME: kind of hacky. if this object doesn't have a background
         # color, find the next highest one that does, and add a colorfield
         # with that color, so that backgrounds show through higher objects
-        # with no backgrounds
+        # with no backgrounds.
         if hasattr(self._highestObject, 'shader') and not \
                 self._highestObject.shader.bg_rgb:
 
@@ -985,14 +986,14 @@ class Tile(shader.Shader):
         for obj in list(self.contents):
             self.remove(obj)
         
-    def update(self, parent=None):
-        """
-        Implements L{Shader.update}.
-        """
-        # avoids name conflict with set.update
-        if self.dirty:
-            shader.Shader.update(self, parent=parent)
-            self.__frozenShader = None
+    #def update(self, parent=None):
+    #    """
+    #    Implements L{Shader.update}.
+    #    """
+    #    # avoids name conflict with set.update
+    #    if self.dirty:
+    #        shader.Shader.update(self, parent=parent)
+    #        self.__frozenShader = None
 
     def updateContents(self, otherSet):
         """
@@ -1134,8 +1135,6 @@ class Map2D(object):
         self.name = name
         self.rows, self.cols = rows, cols
         
-        #self.tiles = array([array([Tile(self, (col,row)) for \
-        #        col in range(cols)]) for row in range(rows)])
         self.tiles = [[Tile(self, (col,row)) for \
                 col in range(cols)] for row in range(rows)]
             
@@ -1598,9 +1597,9 @@ class AsciiTile(shader.Pass):
         else:
             self.reflBgRGB = None
 
-        #if self.reflRGB != prevReflRGB or self.reflBgRGB != prevReflBgRGB:
-        self.bgShader.rgb = self.reflBgRGB or (0,255,255)            
-        self.touch()
+        if self.reflRGB != prevReflRGB or self.reflBgRGB != prevReflBgRGB:
+            self.bgShader.rgb = self.reflBgRGB or (0,255,255)            
+            self.touch()
 
 #==============================================================================
 
