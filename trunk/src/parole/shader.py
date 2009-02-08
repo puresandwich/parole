@@ -327,6 +327,12 @@ class Shader(Sprite):
         if blitPasses:
             self.blitPasses(destImage, blitDirtyOnly)
 
+        # make sure that only dirty passes remain in self.dirtyPasses
+        # (a non-dirty pass could get in there by via addPass())
+        for dp in self.dirtyPasses:
+            if not dp.dirty:
+                self.dirtyPasses.remove(dp)
+
     def updatePasses(self):
         """
         Updates the shader's child passes. User shaders should usually call
@@ -337,6 +343,8 @@ class Shader(Sprite):
         #parole.debug('%s: updating %s passes: %s', self,
         #        len(self.updateDirtyPasses),
         #        ['%s: %s' % (s, s.rect) for s in self.updateDirtyPasses.sprites()])
+        #parole.debug('%s: updating %s passes', self,
+        #        len(self.updateDirtyPasses))
         self.updateDirtyPasses.update()
 
     def blitPasses(self, dest=None, dirtyOnly=False):
@@ -353,6 +361,8 @@ class Shader(Sprite):
         #parole.debug('%s: blitting %s passes (dirtyOnly=%s): %s', self,
         #        len(passes), dirtyOnly,
         #        ['%s: %s' % (s, s.rect) for s in passes.sprites()])
+        #parole.debug('%s: blitting %s passes (dirtyOnly=%s)', self,
+        #        len(passes), dirtyOnly)
 
         if not dirtyOnly:
             parole.display.clearSurface(dest, dest.get_rect())
@@ -952,6 +962,8 @@ class ShaderGrid(Shader):
 
             tileWidth, tileHeight = self.tileSize
             oldPass = self.__grid[coords[1]][coords[0]]
+            if oldPass is value:
+                return
             if oldPass and oldPass in self.passes:
                 self.remPass(oldPass)
 

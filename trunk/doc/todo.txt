@@ -121,9 +121,12 @@ Bugs:
 [x] ScrollView needs to be sped up a bit for largish maps
     - ScrollView is now significantly faster in cases where it has only one
       pass (which is normal for maps, text, etc.).
-[ ] FOV has some performance problems, especially when remembering tiles. The
+[x] FOV has some performance problems, especially when remembering tiles. The
     more tiles have been seen, the slower it gets to update FOV even in unrelated
-    parts of the map. Maybe ShaderGrid needs optimizing?
+    parts of the map. Maybe ShaderGrid needs optimizing? Fixed - it was a
+    problem with nondirty passes being added to Shader.dirtyPasses through
+    addPass(), but then never having a chance to get removed, because they
+    weren't internally dirty, so never got updated/cleaned.
 [x] Why does importing PyGame now cause malloc errors?
     - answer: using bad verison of stackless. screw stackless.
 [x] Update copyrights.
@@ -176,7 +179,7 @@ Bugs:
 [ ] There are probably still some shaders that aren't picklable.
 [ ] Remebered tiles don't quite work right, can reveal changes out of FOV.
     Need to work out better separation of overlay display from tile content
-    display.
+    display. 
 
 Features:
 [ ] Agents and Events; SimPy integration?
