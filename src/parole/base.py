@@ -413,20 +413,21 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Give all loaded modules a chance to incorporate current config settings
     #parole.conf.changed()
 
-    # did the user give us a functor or a generator?
-    updateFuncObj = updateFunc
-    updateGen = None
-    if gen:
-        updateGen = updateFuncObj()
-
     # Retrieve updateFunc if it names a script resource
     if type(updateFunc) is str:
         updateFuncObj = resource.getObject(updateFunc, 'updateFunc')
         if not updateFuncObj:
             panic("Couldn't load updateFunc from \"%s\"!" % (updateFunc,))
+    else:
+        updateFuncObj = updateFunc
 
     if not callable(updateFuncObj):
         panic("updateFunc is not callable!")
+
+    # did the user give us a functor or a generator?
+    updateGen = None
+    if gen:
+        updateGen = updateFuncObj()
 
     # Init done
     info('Parole ready. Entering main loop.')

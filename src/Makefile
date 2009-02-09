@@ -1,5 +1,5 @@
 all:
-	PYTHONPATH=. python2.5 test/test-0.5.0.py
+	cd testgame; PYTHONPATH=.. python startgame.py
 
 api:
 	rm -rf ../doc/api

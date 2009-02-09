@@ -1,188 +1,11 @@
 
 import parole, traceback, sys, random, gc
-import test
 import pygame, pickle, cPickle, bz2
 from parole.display import interpolateRGB
 from parole.colornames import colors
 
-boobspot = 0
-sdr = None
-
-@test.test()
-def t_colorfield():
-        global sdr
-        scene = parole.display.scene
-        
-        def handleCommand(command):
-            global sdr
-            if command == 'quit':
-                raise parole.ParoleShutdown
-            elif command == 'fps':
-                fps = parole.display.framerate()
-                parole.info("FPS: %s", fps)
-            elif command == 'move right':
-                scene.positionOf[sdr] = (scene.positionOf[sdr][0]+5, scene.positionOf[sdr][1])
-            elif command == 'move left':
-                scene.positionOf[sdr] = (scene.positionOf[sdr][0]-5, scene.positionOf[sdr][1])
-            elif command == 'move up':
-                scene.positionOf[sdr] = (scene.positionOf[sdr][0], scene.positionOf[sdr][1]-5)
-            elif command == 'move down':
-                scene.positionOf[sdr] = (scene.positionOf[sdr][0], scene.positionOf[sdr][1]+5)
-        
-        if test.firstUpdate:
-            parole.info("----> Press some keys. 'q' quits.")
-            parole.info("----> 'F' logs the framerate.")
-            test.firstUpdate = False
-            parole.pushUIEventHandler(parole.input.CommandMap(parole.conf.commands.testcommandset,
-                                                              handleCommand))
-            sdr = parole.shader.Shader("testshader", (150,150))
-            field = parole.shader.ColorField((255,255,255), (150,150))
-            sdr.addPass(field)
-            subsdr = parole.shader.Shader("subshader", (40,40))
-            subsdr.addPass(parole.shader.ColorField((255,0,0), (10,10)),
-                    pos=(10,10))
-            sdr.addPass(subsdr, pos=(20,5))
-            parole.display.scene.add(sdr, pos=(50,50))
-
-        surf = parole.display.getSurface()
-        surf.fill((0,0,0))
-
-@test.test()
-def t_resource():
-        if test.firstUpdate:
-            test.firstUpdate = False
-            parole.info('Attempting to load a text resource...')
-            text = parole.resource.getResource('text/test.txt')
-            parole.info('"%s"', text)
-        else:
-            parole.info('All done!')
-            raise parole.ParoleShutdown
-
-
 data = {}
-
-@test.test()
-def t_texturepass():
-    scene = parole.display.scene
-    def handleCommand(command):
-        sdr = data['sdr']
-        if command == 'quit':
-            raise parole.ParoleShutdown
-        elif command == 'fps':
-            fps = parole.display.framerate()
-            parole.info("FPS: %s", fps)
-        elif command == 'move right':
-            scene.positionOf[sdr] = (scene.positionOf[sdr][0]+5, scene.positionOf[sdr][1])
-        elif command == 'move left':
-            scene.positionOf[sdr] = (scene.positionOf[sdr][0]-5, scene.positionOf[sdr][1])
-        elif command == 'move up':
-            scene.positionOf[sdr] = (scene.positionOf[sdr][0], scene.positionOf[sdr][1]-5)
-        elif command == 'move down':
-            scene.positionOf[sdr] = (scene.positionOf[sdr][0], scene.positionOf[sdr][1]+5)
-        
-    if test.firstUpdate:
-        test.firstUpdate = False
-        parole.pushUIEventHandler(parole.input.CommandMap(parole.conf.commands.testcommandset,
-                                                          handleCommand))
-        parole.info("Creating texture pass")
-        texture = parole.shader.TexturePass("textures/condie.jpg")
-        sdr = parole.shader.Shader("testshader", texture.size)
-        sdr.addPass(texture)
-        scene.add(sdr, pos=(100,100))
-        data['sdr'] = sdr
-        parole.info("Arrows move Condie, 'F' logs framerate, 'q' quits.")
-        
-    parole.display.getSurface().fill((0,0,0))
-
-
-        
-@test.test('ziptest.cfg')
-def t_zip():
-    
-    if test.firstUpdate:
-        test.firstUpdate = False
-        parole.info('Bazongas!')
-        raise parole.ParoleShutdown
-    
-
-loremIpsum = \
-'''Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
-cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-proident, sunt in culpa qui officia deserunt mollit anim id est laborum. '''
-
-block = None
-frame = None
-
-@test.test()
-def t_textblock():
-    global sdr, frame, block, scroller
-    
-    def handleCommand(command):
-        global sdr, frame, block
-        if command == 'quit':
-            raise parole.ParoleShutdown
-        elif command == 'fps':
-            fps = parole.display.framerate()
-            parole.info("FPS: %s", fps)
-        elif command == 'move right':
-            parole.display.scene.positionOf[frame] = (parole.display.scene.positionOf[frame][0]+5, parole.display.scene.positionOf[frame][1])
-        elif command == 'move left':
-            parole.display.scene.positionOf[frame] = (parole.display.scene.positionOf[frame][0]-5, parole.display.scene.positionOf[frame][1])
-        elif command == 'move up':
-            parole.display.scene.positionOf[frame] = (parole.display.scene.positionOf[frame][0], parole.display.scene.positionOf[frame][1]-5)
-        elif command == 'move down':
-            parole.display.scene.positionOf[frame] = (parole.display.scene.positionOf[frame][0], parole.display.scene.positionOf[frame][1]+5)
-        elif command == 'scroll right':
-            scroller.scrollPixels(10, 0)
-        elif command == 'scroll left':
-            scroller.scrollPixels(-10, 0)
-        elif command == 'scroll up':
-            scroller.scrollPixels(0, -10)
-        elif command == 'scroll down':
-            scroller.scrollPixels(0, 10)
-    
-    if test.firstUpdate:
-        parole.info("----> Press some keys. 'q' quits.")
-        parole.info("----> 'F' logs the framerate.")
-        test.firstUpdate = False
-        parole.pushUIEventHandler((parole.input.CommandMap(parole.conf.commands.testcommandset,
-            handleCommand, peek=True),
-            parole.input.CommandMap(parole.conf.commands.scrollcommands,
-                handleCommand)))
-        sdr = parole.shader.Shader("FrameContents", (300,450))
-        field = parole.shader.ColorField((0,64,128), (300,450))
-        sdr.addPass(field)
-        font = parole.resource.getFont("fonts/Arial.ttf", 14)
-        block = parole.shader.TextBlockPass(font, (255,255,255),
-                wrap_width=274, bg_rgb=(0,64,128), align='left', wrap='word')
-        #block.text = 'Sweet\nlittle\nannie banany\tis perc\vhed atop the back of my chair. She is most lovely, is she not?'
-        block.text = ' '.join(loremIpsum.split('\n'))*5
-        scroller = parole.shader.ScrollView((280,430), contents=[block],
-                vbar=parole.shader.VerticalScrollbar((255,255,255),
-                    (128,128,128), 5), followY=False)
-        sdr.addPass(scroller, pos=(10,10))
-        #sdr.addPass(block, pos=(10,10))
-
-        sdr2 = parole.shader.Shader("BareTextShader", (100,100))
-        sdr2.addPass(parole.shader.TextBlockPass(font, (255,255,255),
-            text="Fags ahoy!"))
-        parole.display.scene.add(sdr2, pos=(470, 10))
-
-        frame = parole.shader.Frame((parole.shader.VerticalBevel((0,0,0), 
-            (128,128,128), (255,255,255),1, 2, 1),
-            parole.shader.VerticalBevel((0,0,0), (128,129,128), (255,255,255), 1, 2, 1),
-            parole.shader.HorizontalBevel((255,255,255), (128,128,128), (0,0,0), 1, 2, 1),
-            parole.shader.HorizontalBevel((255,255,255), (128,128,128), (0,0,0), 1, 2, 1),
-            None,None,None,None),
-            contents=[sdr])
-        parole.display.scene.add(frame, pos=(10,10))
-
-    #surf = parole.display.getSurface()
-    #surf.fill((0,0,0))
-
+firstUpdate = True
 
 class Player(parole.map.MapObject):
     def __init__(self):
@@ -469,8 +292,9 @@ def remAimOverlay(tile):
 lookAnnote = None
 zapping = False
 
-@test.test()
-def t_mapgen():
+def updateFunc():
+    global firstUpdate
+
     def handleWalk(command):
         global lookAnnote, player, zapping
         if not player:
@@ -659,8 +483,8 @@ def t_mapgen():
             map = makeMap3()
             data['mapframe'].setMap(map)
 
-    if test.firstUpdate:
-        test.firstUpdate = False
+    if firstUpdate:
+        firstUpdate = False
 
         walkCommands = parole.input.CommandMap(parole.conf.commands.walkcommands,
                                                handleWalk, peek=True)
@@ -698,15 +522,3 @@ def t_mapgen():
 
     #parole.display.getSurface().fill((0,0,0))
 
-#tests = [t_resource, t_zip, t_colorfield, t_texturepass, t_textblock, t_mapgen]
-#tests = [t_resource, t_colorfield, t_texturepass, t_textblock, t_mapgen]
-tests = [t_mapgen]
-
-def main():
-    #gc.set_debug(gc.DEBUG_LEAK)
-    test.runTests(tests)
-    test.summary()
-
-
-if __name__ == "__main__":
-    main()
