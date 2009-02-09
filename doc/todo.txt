@@ -164,8 +164,10 @@ Features:
 [x] Upgrade to PyGame 1.8.1
 [x] Add psyco support.
 [x] Support generator for user frame function
-[ ] Make it easy to create a new stub of a game.
-[ ] Make it easy to package a game for distribution.
+[ ] Packaging and distribution
+    [ ] Setuptools for the engine itself.
+    [ ] Make it easy to create a new stub of a game (with its own setuptools).
+    [ ] Make it easy to package a game for distribution.
 
 0.5.0 Completed on:
 ----------------------------------------------------

@@ -28,10 +28,9 @@ code can simply call C{parole.startup(...)} rather than
 C{parole.base.startup(...)}.  
 """
 
-import logging, sys, copy_reg
+import logging, sys
 import config
 import parole 
-from decorator import decorator
 
 # Version info
 developmentVersion = True
@@ -46,7 +45,7 @@ C{(major, minor, revision)} integers.
 """
 
 versionStr = '%s.%s.%s%s' % (version[0], version[1], version[2],
-        developmentVersion and '-dev' or '')
+        developmentVersion and 'dev' or '')
 """
 A human readable version string derived from L{version} and
 L{developmentVersion}.
