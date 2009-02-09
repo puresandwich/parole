@@ -189,6 +189,7 @@ class Player(parole.map.MapObject):
         playerGlyph = parole.map.AsciiTile('@', (255,255,255))
         parole.map.MapObject.__init__(self, 1000,
             playerGlyph)
+        self.blocker = True
         
     def __str__(self):
         return 'the player'
@@ -636,6 +637,8 @@ def t_mapgen():
         elif command == 'move up':
             data['mapframe'].scrollTiles(0, -1)
         elif command == "makeMap1":
+            mbox = messageBox('Creating map...')
+            parole.display.update()
             time = parole.time()
             map = makeMap1()
             time = (parole.time() - time) or 1
@@ -648,6 +651,7 @@ def t_mapgen():
             data['mapframe'].setMap(map)
             #data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
             data['fov'] = False
+            parole.display.scene.remove(mbox)
         elif command == "makeMap2":
             map = makeMap2()
             data['mapframe'].setMap(map)

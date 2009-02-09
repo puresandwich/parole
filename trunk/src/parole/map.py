@@ -271,9 +271,9 @@ class MapFrame(shader.Frame):
         self.__rememberSeenTiles = remember
         if obj:
             self.__disableAll()
-            self.__map.monitorNearby(obj, radius, self.__touchQuadrant,
+            self.__map.monitorNearby(obj, radius, self.__touchFOVQuadrant,
                     self.__blocksLOS)
-            self.__touchQuadrant(obj, obj, obj.pos)
+            self.__touchFOVQuadrant(obj, [(obj, obj.pos)])
         else:
             self.__enableAll()
 
@@ -295,13 +295,14 @@ class MapFrame(shader.Frame):
         #parole.debug('checking if blocks los')
         return obj.blocksLOS or obj is self.__fovObj
 
-    def __touchQuadrant(self, monObj, obj, pos):
+    def __touchFOVQuadrant(self, monObj, objsPos):
         assert(monObj is self.__fovObj)
-        if monObj is obj:
-            # the fov object has moved
-            self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
-        else:
-            self.__dirtyFovQuads.add(self.__map.quadrant(pos, monObj.pos))
+        for (obj, pos) in objsPos:
+            if monObj is obj:
+                # the fov object has moved
+                self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
+            else:
+                self.__dirtyFovQuads.add(self.__map.quadrant(pos, monObj.pos))
 
         #parole.debug('MapFrame.__touchQuadrant: dirty quads = %s',
         #        self.__dirtyFovQuads)
@@ -1249,20 +1250,10 @@ class Map2D(object):
         return tile
 
     def onAdd(self, tile, obj):
-        for (monObj, (dist, callback, condition)) in \
-                self.distMonObjs.iteritems():
-            #parole.debug('add: checking %s nearby %s', obj, monObj)
-            condition = condition or (lambda x: True)
-            if condition(obj) and self.dist(obj.pos, monObj.pos) <= dist:
-                self.dirtyDistMonObjs[monObj].add((obj, obj.pos))
+        self.notifyMonitors(obj)
     
     def onRemove(self, tile, obj):
-        for (monObj, (dist, callback, condition)) in \
-                self.distMonObjs.iteritems():
-            #parole.debug('remove: checking %s nearby %s', obj, monObj)
-            condition = condition or (lambda x: True)
-            if condition(obj) and self.dist(obj.pos, monObj.pos) <= dist:
-                self.dirtyDistMonObjs[monObj].add((obj, obj.pos))
+        self.notifyMonitors(obj)
     
     def applyGenerator(self, generator, rect=None):
         """
@@ -1292,11 +1283,24 @@ class Map2D(object):
 
     def monitorNearby(self, obj, dist, callback, condition=None):
         # User had better make sure callback and condition are pickleable
-        if obj.parentTile not in self:
-            raise ValueError('obj must be a MapObject contained by this Map.')
+        if (not isinstance(obj, Tile) and not isinstance(obj, MapObject)) \
+                or (isinstance(obj, MapObject) and obj.parentTile not in self) \
+                or (isinstance(obj, Tile) and obj not in self):
+            raise ValueError('obj must be a Tile or MapObject contained '
+                             'by this Map.')
 
         self.distMonObjs[obj] = (dist, callback, condition)
         self.dirtyDistMonObjs[obj] = set()
+
+    def notifyMonitors(self, obj):
+        for (monObj, (dist, callback, condition)) in \
+                self.distMonObjs.iteritems():
+            #parole.debug('remove: checking %s nearby %s', obj, monObj)
+            condition = condition or (lambda x: True)
+            monObjPos = isinstance(monObj, Tile) and (monObj.col, monObj.row) \
+                    or monObj.pos
+            if condition(obj) and self.dist(obj.pos, monObjPos) <= dist:
+                self.dirtyDistMonObjs[monObj].add((obj, obj.pos))
 
     def unmonitorNearby(self, obj):
         if obj in self.distMonObjs:
@@ -1306,12 +1310,11 @@ class Map2D(object):
     def updateDirtyMonitors(self):
         #parole.debug('updateDirtyMonitors: %s', self.dirtyDistMonObjs)
         #parole.debug('distMonObjs: %s', self.distMonObjs)
-        for monObj, objs in self.dirtyDistMonObjs.iteritems():
-            if objs:
+        for monObj, objsPos in self.dirtyDistMonObjs.iteritems():
+            if objsPos:
                 callback = self.distMonObjs[monObj][1]
-                for obj,pos in objs:
-                    callback(monObj, obj, pos)
-                objs.clear()
+                callback(monObj, objsPos)
+                objsPos.clear()
 
     def updateDirtyLight(self):
         for t in self.tilesWithDirtyLight:
@@ -1436,6 +1439,7 @@ class LightSource(object):
         self.fallOff = fallOff
         self.minIntensity = 0.03
         self.appliedTiles = {}
+        self.pos = None
         self.calcRadius()
 
     def copy(self):
@@ -1455,6 +1459,9 @@ class LightSource(object):
         self.rgb = rgb
 
     def setIntensity(self, intensity):
+        """
+        Be sure to remove before changing intensity!
+        """
         self.intensity = intensity
         self.calcRadius()
         self.distIntensities = {}
@@ -1484,16 +1491,35 @@ class LightSource(object):
             #t.applyLight()
 
         map.fieldOfView(pos, self.radius, visit)
+        map.monitorNearby(map[pos], self.radius, self.monitorCallback,
+                self.monitorCondition)
+        self.pos = pos
         parole.debug('LightSource.apply: time = %sms', parole.time() - time)
 
     def remove(self, map):
         time = parole.time()
+        if self.pos:
+            map.unmonitorNearby(map[self.pos])
+            self.pos = None
+        else:
+            parole.warn("Removing LightSource that wasn't previously added")
         for pos, intensity in self.appliedTiles.iteritems():
             t = map[pos]
             t.removeLight(self.rgb, intensity)
             #t.applyLight()
         self.appliedTiles = {}
         parole.debug('LightSource.remove: time = %sms', parole.time() - time)
+
+    def monitorCallback(self, tile, objsPos):
+        # FIXME: does this interact strangely with changing the intensity/color
+        # of the light source?
+        self.remove(tile.map)
+        self.apply(tile.map, (tile.col, tile.row))
+
+    def monitorCondition(self, obj):
+        # TODO: should really be something like obj.canBlockLOS, for responding
+        # to objects start/stop blocking light
+        return obj.blocksLOS
 
 #==============================================================================
 
@@ -1506,7 +1532,9 @@ class AsciiTile(shader.Pass):
     @classmethod
     def characterSize(cls):
         """
-        Oh God, assumes monospaced font!
+        Returns the dimensions of a single AsciiTile. Assumes that
+        AsciiTile.font has been set to a monospaced font, and returns the
+        dimensions of a "#" character rendered in that font.
         """
         fsz = cls.font.size('#')
         if cls.makeSquare:

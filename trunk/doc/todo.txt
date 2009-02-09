@@ -157,10 +157,10 @@ Features:
 [x]     Annotations of tiles offscreen (should be better)
 [x]     Overlays should show up on remembered but unseen tiles.
 [x]     Handle overlays on unseen, unremembered tiles.
-[.] Lighting and LightSources
+[x] Lighting and LightSources
 [x]     Basics
-[ ]     LOS blockers moving through light
-[ ]     Some optimization of AsciiTile.applyLight() - a cache?
+[x]     LOS blockers moving through light
+[-]     Some optimization of AsciiTile.applyLight() - a cache?
 [x] Upgrade to PyGame 1.8.1
 [x] Add psyco support.
 [x] Support generator for user frame function
