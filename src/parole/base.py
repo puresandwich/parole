@@ -28,7 +28,7 @@ code can simply call C{parole.startup(...)} rather than
 C{parole.base.startup(...)}.  
 """
 
-import logging, sys
+import logging, sys, pkg_resources
 import config
 import parole 
 
@@ -329,7 +329,12 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     del uiEventHandlers[:]
     
     info('Reading config: %s...', configFile)
-    f = open(configFile, 'r')
+    try:
+        f = open(configFile, 'r')
+    except Exception, e:
+        error('Failed to read configuration from %r: %s', configFile, e)
+        warn('Falling back on default configuration.')
+        f = pkg_resources.resource_stream(__name__, 'data/default.cfg')
     parole.conf = NotifyingConfig(f)
     f.close()
     
