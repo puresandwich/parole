@@ -71,36 +71,36 @@ __printFrameTime = False
 #{ Utilities
 
 # Engine log output functions, one for each log level.
-#debug = logging.debug
-#info = logging.info
-#warn = logging.warn
-#error = logging.error
+debug = logging.debug
+info = logging.info
+warn = logging.warn
+error = logging.error
 # unfortunately these don't show up in epydoc this way
 
-def debug(*args, **kwargs):
-    """
-    Logs a message at level C{DEBUG}. Arguments work exactly as they do for the
-    standard library's C{logging.debug}.
-    """
-    logging.debug(*args, **kwargs)
-def info(*args, **kwargs):
-    """
-    Logs a message at level C{INFO}. Arguments work exactly as they do for the
-    standard library's C{logging.info}.
-    """
-    logging.info(*args, **kwargs)
-def warn(*args, **kwargs):
-    """
-    Logs a message at level C{WARN}. Arguments work exactly as they do for the
-    standard library's C{logging.warn}.
-    """
-    logging.warn(*args, **kwargs)
-def error(*args, **kwargs):
-    """
-    Logs a message at level C{ERROR}. Arguments work exactly as they do for the
-    standard library's C{logging.error}.
-    """
-    logging.error(*args, **kwargs)
+#def debug(*args, **kwargs):
+#    """
+#    Logs a message at level C{DEBUG}. Arguments work exactly as they do for the
+#    standard library's C{logging.debug}.
+#    """
+#    logging.debug(*args, **kwargs)
+#def info(*args, **kwargs):
+#    """
+#    Logs a message at level C{INFO}. Arguments work exactly as they do for the
+#    standard library's C{logging.info}.
+#    """
+#    logging.info(*args, **kwargs)
+#def warn(*args, **kwargs):
+#    """
+#    Logs a message at level C{WARN}. Arguments work exactly as they do for the
+#    standard library's C{logging.warn}.
+#    """
+#    logging.warn(*args, **kwargs)
+#def error(*args, **kwargs):
+#    """
+#    Logs a message at level C{ERROR}. Arguments work exactly as they do for the
+#    standard library's C{logging.error}.
+#    """
+#    logging.error(*args, **kwargs)
 
 #==============================================================================
 
@@ -328,7 +328,6 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Make sure the stack of ui event handlers is cleared
     del uiEventHandlers[:]
     
-    info('BALLS 9000!!!!!!!!!!!!')
     info('Reading config: %s...', configFile)
     try:
         f = open(configFile, 'r')
@@ -530,6 +529,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # We don't need to call pygame.quit(), since that will be taken care of
     # automatically when the process exits. Also, this way we can restart
     # the engine in the same process, if desired.
+    info('Goodbye.\n*********************\n')
 
 #==============================================================================
 
@@ -568,7 +568,8 @@ def panic(msg):
     """
 
     print msg
-    logging.critical(str(msg))
+    logging.critical("\n********************\n%s\n********************",
+            str(msg))
     info('PANIC - Goodbye!')
     raise SystemExit
 
