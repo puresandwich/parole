@@ -240,7 +240,6 @@ def handleWalk(command):
                         playerTile]))
         return
     elif command == 'save':
-        return # currently broken
         mbox = util.messageBox('Saving...')
         parole.display.update()
         time = parole.time()
@@ -257,7 +256,6 @@ def handleWalk(command):
         parole.display.scene.remove(mbox)
         return
     elif command == 'restore':
-        return # currently broken
         mbox = util.messageBox('Restoring...')
         parole.display.update()
         if lookAnnote:
