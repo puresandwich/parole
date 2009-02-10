@@ -537,7 +537,7 @@ class Frame(Shader):
             # Nothing to do
             return False
 
-        parole.debug('Frame %s: fitting to contents...', self)
+        #parole.debug('Frame %s: fitting to contents...', self)
         self.size = newSize
         return True
 
@@ -762,7 +762,7 @@ class ScrollView(Shader):
         contentsSize = self.contentsSize()
         if self.dirty and self.dirtyPasses:
             wasDirty = True
-            parole.debug('%s: updating contents...', self)
+            #parole.debug('%s: updating contents...', self)
 
             super(ScrollView, self).update(updatePasses=True, blitPasses=False)
 
@@ -790,8 +790,8 @@ class ScrollView(Shader):
         if atBottom and self.followY:
             self.scrollPixels(0, self.__contentsImage.get_size()[1])
 
-        parole.debug('%s: updating view (offset=%s)...',
-                self, self.offset)
+        #parole.debug('%s: updating view (offset=%s)...',
+        #        self, self.offset)
 
         viewRegion = self.visibleRect()
 
@@ -822,7 +822,7 @@ class ScrollView(Shader):
             self.image.blit(vbarImg, (self.width - vbarImg.get_width(), 0))
 
         self.__viewDirty = False
-        parole.debug('ScrollView.update: time = %s', parole.time() - time)
+        #parole.debug('ScrollView.update: time = %s', parole.time() - time)
 
     def scrollPixels(self, dx, dy):
         #parole.debug('ScrollView.scrollPixels(%s, %s)', dx, dy)
@@ -910,6 +910,10 @@ class ShaderGrid(Shader):
         self.__tileSize = tileSize
 
         self.resetGrid()
+
+    def __getstate__(self):
+        parole.warn('Pickling ShaderGrid!')
+        return super(ShaderGrid, self).__getstate__()
 
     @parole.Property
     def gridSize():
@@ -1000,7 +1004,7 @@ class ShaderGrid(Shader):
     def update(self):
         time = parole.time()
         super(ShaderGrid, self).update(blitDirtyOnly=True)
-        parole.debug('ShaderGrid.update: time = %s', parole.time() - time)
+        #parole.debug('ShaderGrid.update: time = %s', parole.time() - time)
 
 
 #==============================================================================
@@ -1219,7 +1223,7 @@ class TextBlockPass(Pass):
     #=============================#
 
     def __renderText(self):
-        parole.debug('render text: %s', self)
+        #parole.debug('render text: %s', self)
 
         # break text up into its 'logical form' (LF): a sequence of text-spans
         # and markup

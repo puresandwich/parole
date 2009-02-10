@@ -111,6 +111,10 @@ class MapFrame(shader.Frame):
         if map:
             self.setMap(map)
 
+    def __getstate__(self):
+        parole.warn('MapFrame is being pickled!')
+        return super(MapFrame, self).__getstate__()
+
     @parole.Property
     def tileSize():
         """
@@ -162,6 +166,9 @@ class MapFrame(shader.Frame):
             if self.__grid:
                 self.__scroll.remPass(self.__grid)
             self.remPass(self.__scroll)
+
+        if self.__grid:
+            self.__grid.clearPasses()
 
         if not self.__map:
             return
@@ -1282,6 +1289,8 @@ class Map2D(object):
         #parole.debug('fieldOfView: time = %sms', parole.time() - time)
 
     def monitorNearby(self, obj, dist, callback, condition=None):
+        # TODO: let user specify callback as an object and the name of a method
+        # to bind.
         # User had better make sure callback and condition are pickleable
         if (not isinstance(obj, Tile) and not isinstance(obj, MapObject)) \
                 or (isinstance(obj, MapObject) and obj.parentTile not in self) \
@@ -1491,10 +1500,9 @@ class LightSource(object):
             #t.applyLight()
 
         map.fieldOfView(pos, self.radius, visit)
-        map.monitorNearby(map[pos], self.radius, self.monitorCallback,
-                self.monitorCondition)
+        map.monitorNearby(map[pos], self.radius, self, objectBlocksLOS)
         self.pos = pos
-        parole.debug('LightSource.apply: time = %sms', parole.time() - time)
+        #parole.debug('LightSource.apply: time = %sms', parole.time() - time)
 
     def remove(self, map):
         time = parole.time()
@@ -1508,18 +1516,23 @@ class LightSource(object):
             t.removeLight(self.rgb, intensity)
             #t.applyLight()
         self.appliedTiles = {}
-        parole.debug('LightSource.remove: time = %sms', parole.time() - time)
+        #parole.debug('LightSource.remove: time = %sms', parole.time() - time)
 
-    def monitorCallback(self, tile, objsPos):
+    def __call__(self, tile, objsPos):
+        # Handle something that blocks light moving through our radius.
+        # Basically just remove then re-add ourselves, so that shadows get
+        # recalculated.
         # FIXME: does this interact strangely with changing the intensity/color
-        # of the light source?
+        # of the light source between calls?
         self.remove(tile.map)
         self.apply(tile.map, (tile.col, tile.row))
 
-    def monitorCondition(self, obj):
-        # TODO: should really be something like obj.canBlockLOS, for responding
-        # to objects start/stop blocking light
-        return obj.blocksLOS
+#==============================================================================
+
+def objectBlocksLOS(obj):
+    # TODO: should really be something like obj.canBlockLOS, for responding
+    # to objects start/stop blocking light
+    return obj.blocksLOS
 
 #==============================================================================
 
