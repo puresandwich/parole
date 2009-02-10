@@ -1,8 +1,8 @@
 
-def messageBox(text, align='center'):
+def messageBox(text, align='center', textWidth=274):
     font = parole.resource.getFont("fonts/Arial.ttf", 14)
     block = parole.shader.TextBlockPass(font, (255,255,255),
-            wrap_width=274, bg_rgb=(0,64,128), align=align, wrap='word')
+            wrap_width=textWidth, bg_rgb=(0,64,128), align=align, wrap='word')
     block.text = text
     block.update()
     sdr = parole.shader.Shader("FrameContents", 
