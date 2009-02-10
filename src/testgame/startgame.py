@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import parole
+import main
 
-def main():
-    parole.startup('testgame.cfg', 'scripts/main.py')
+def start():
+    parole.startup('testgame.cfg', main.updateFunc)
 
 if __name__ == "__main__":
-    main()
+    start()

@@ -49,7 +49,7 @@ It is possible to disallow directory packages through the config option
 C{resource.allowdirs}.
 """
 
-import pygame, parole, logging, os, zipfile, cStringIO, shader
+import pygame, parole, logging, os, zipfile, cStringIO, shader, imp, sys
 
 __resTable = {}
 
@@ -469,17 +469,7 @@ def getShaderClass(scriptName):
 
 #==============================================================================
 
-def getObject(scriptName, objName):
-    """
-    Retrieves a python object defined in the given python script 
-    resource.
-    """
-    # Return any cached copy of the desired shader object
-    if (scriptName, objName) in __resTable:
-        return __resTable[(scriptName, objName)]
-    
-    parole.info('Loading object "%s" from "%s"', objName, scriptName)
-    
+def __runScript(scriptName):
     # scriptName should be a resource whose bytes are python code
     bytes = getResource(scriptName)
     if not bytes:
@@ -487,7 +477,12 @@ def getObject(scriptName, objName):
 
     # compile the code, copy the current global namespace to execute it in
     scriptCode = compile(bytes, scriptName, 'exec')
-    scriptNamespace = globals().copy()
+    #modName = scriptName.replace('.py', '').replace('/', '.')
+    modName = scriptName.split('/')[-1].replace('.py', '')
+    scriptNamespace = {'__name__': modName, 
+                       '__file__': scriptName,
+                       '__builtins__': globals()['__builtins__'],
+                       'parole': globals()['parole']}
 
     # Attempt to execute the code of the shader definition script.
     # It should create a global in its namespace called 'theShader', which
@@ -496,6 +491,38 @@ def getObject(scriptName, objName):
         exec scriptCode in scriptNamespace
     except Exception, e:
         parole.error('Error executing "%s".\n%s', scriptName, e)
+        return None
+
+    return scriptNamespace
+
+#==============================================================================
+
+def getObject(scriptName, objName):
+    """
+    Retrieves a python object defined in the given python script 
+    resource.
+
+    @param scriptName:
+    Should name a resource that is a python 
+    script. The script should, upon execution, create a global (to itself) 
+    object object with the name C{objName}.
+    @type scriptName: C{str}
+
+    @param objName:
+    The name of the object created in the script's global namespace to return.
+
+    @return: C{object}
+    """
+    # Return any cached copy of the desired object
+    if (scriptName, objName) in __resTable:
+        return __resTable[(scriptName, objName)]
+    
+    parole.info('Loading object "%s" from "%s"', objName, scriptName)
+    
+    scriptNamespace = __runScript(scriptName)
+    if not scriptNamespace:
+        parole.error('Failed to load object "%s" from "%s"', objName,
+                scriptName)
         return None
     
     if objName not in scriptNamespace:
@@ -508,6 +535,51 @@ def getObject(scriptName, objName):
     # Cache it and return it
     __resTable[(scriptName, objName)] = obj
     return obj
+
+#==============================================================================
+
+def getModule(name, addToSysModules=True):
+    """
+    Loads a script resource and returns it as a module object.
+
+    @param name:
+    Should name a resource that is a python 
+    script. The script will be loaded and executed, and a new module object will
+    be constructed from its global namespace.
+    @type name: C{str}
+
+    @param addToSysModules:
+    If C{True}, the loaded module will also be added to C{sys.modules}, as if
+    it were truly imported.
+    @type addToSysModules: C{bool}
+
+    @return C{module}. The module's name will be derived from that of the script
+    resource, with directories corresponding to packages. For example,
+    "scripts/util.py" results in a module called "scripts.util".
+    """
+    # Return any cached copy of the desired object
+    if name in __resTable:
+        return __resTable[name]
+
+    modName = name.replace('.py', '').replace('/', '.')
+    parole.info('Loading script "%s" as module %s...', name, modName)
+
+    scriptNamespace = __runScript(name)
+
+    # set up the module object
+    moduleObj = imp.new_module(modName)
+    moduleObj.__dict__.update(scriptNamespace)
+
+    # The script worked and we have a bona fide module
+    # Cache it and return it
+    __resTable[name] = moduleObj
+
+    # add to sys.modules if requested
+    if addToSysModules:
+        if moduleObj not in sys.modules:
+            sys.modules[moduleObj.__name__] = moduleObj
+
+    return moduleObj
 
 #==============================================================================
 

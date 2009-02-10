@@ -334,10 +334,10 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     except Exception, e:
         error('Failed to read configuration from %r: %s', configFile, e)
         warn('Falling back on default configuration.')
-	try:
-            import pkg_resources
-        except:
-            panic('Unable to fall back on default config: no pkg_resources')
+    try:
+        import pkg_resources
+    except:
+        panic('Unable to fall back on default config: no pkg_resources')
         f = pkg_resources.resource_stream(__name__, 'data/default.cfg')
     parole.conf = NotifyingConfig(f)
     f.close()
