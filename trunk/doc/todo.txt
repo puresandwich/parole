@@ -130,6 +130,7 @@ Bugs:
 [x] Why does importing PyGame now cause malloc errors?
     - answer: using bad verison of stackless. screw stackless.
 [x] Update copyrights.
+[ ] LightSource instancemethod distmons broke map saving.
 
 Features:
 [x] Option to make map font square.
@@ -164,6 +165,7 @@ Features:
 [x] Upgrade to PyGame 1.8.1
 [x] Add psyco support.
 [x] Support generator for user frame function
+[x] resource.getModule() - load a script as a module
 [ ] Packaging and distribution
     [ ] Setuptools for the engine itself.
     [ ] Make it easy to create a new stub of a game (with its own setuptools).
