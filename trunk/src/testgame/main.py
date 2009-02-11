@@ -24,9 +24,11 @@ class Player(parole.map.MapObject):
         parole.map.MapObject.__init__(self, 1000,
             playerGlyph)
         self.blocker = True
+        self.blocksLOS = False
+        self.name = 'the player'
         
     def __str__(self):
-        return 'the player'
+        return self.name
 
 
 # The main frame function
@@ -62,7 +64,7 @@ def updateFunc():
     data['mapframe'] = parole.map.MapFrame(mapsize, tileSize=tileSize)
     parole.display.scene.add(data['mapframe'], pos=mappos)
 
-    newMap()
+    resetGame()
 
     while 1:
         yield
@@ -87,21 +89,59 @@ def remAimOverlay(tile):
             tile.removeOverlay(ovly)
     return True
 
-def newMap():
+def resetGame():
     global player
-    mbox = util.messageBox('Creating map...')
+    mbox = util.messageBox('Creating outdoors...')
     parole.display.update()
     time = parole.time()
     player = Player()
-    map = mapgen.makeMap1(data, player)
+    map, playerPos = mapgen.makeOutdoorMap(data)
+    map[playerPos].add(player)
     time = (parole.time() - time) or 1
     parole.info('Map creation time (%s x %s): %sms => %s tiles per second.',
                 map.cols, map.rows, time, 
                 (float(map.cols*map.rows) / float(time))*1000.0)
+    data['outdoors'] = map
+    data['outdoorsStairs'] = playerPos
+    data['dungeon'] = None
+    data['dungeonStairs'] = None
+    data['currentMap'] = map
     data['mapframe'].setMap(map)
-    #data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
-    data['fov'] = False
+    data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
+    data['fov'] = True
+    light = parole.map.LightSource(colors['White'], 2.0)
+    light.apply(map, player.pos)
+    data['light'] = light
     parole.display.scene.remove(mbox)
+    data['mapframe'].centerAtTile(player.pos)
+
+def setMap(map, playerPos, applyLight=True):
+    mbox = util.messageBox('Patience...')
+    parole.display.update()
+    oldMap = data['mapframe'].getMap()
+    if oldMap:
+        oldMap[player.pos].remove(player)
+        if applyLight:
+            data['light'].remove(oldMap)
+        data['mapframe'].setMap(None)
+
+    map[playerPos].add(player)
+    if applyLight:
+        data['light'].apply(map, playerPos)
+    parole.debug('setting...')
+    data['mapframe'].setMap(map)
+    parole.debug('set!')
+    if data['fov']:
+        parole.debug('binding...')
+        data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
+        parole.debug('bound!')
+    data['mapframe'].centerAtTile(playerPos)
+    parole.debug('updating...')
+    map.update()
+    parole.debug('updated!')
+    parole.display.scene.remove(mbox)
+    data['currentMap'] = map
+    parole.debug('leaving setMap')
 
 helpBox = None
 
@@ -112,17 +152,25 @@ def help():
     helpText = \
 """Keybindings [{\\red command}: {\\green key 1{\\white /}...{\\white /}key n}]
 
-{\\red Quit}: {\\green %s}\t\t{\\red FPS}: {\\green %s}\t\t{\\red Reset map}: {\\green %s}
-{\\red Scroll right}: {\\green %s}\t{\\red Scroll left}: {\\green %s}\t{\\red Scroll up}: {\\green %s}\t{\\red Scroll down}: {\\green %s}
-{\\red Move north}: {\\green %s}\t{\\red Move south}: {\\green %s}\t{\\red Move west}: {\\green %s}\t{\\red Move east}: {\\green %s}
+{\\red Quit}: {\\green %s}\t\t\t\t\t\t{\\red FPS}: {\\green %s}\t\t\t\t\t{\\red Reset game}: {\\green %s}\t\t{\\red Console}: {\\green %s}
+{\\red Scroll right}: {\\green %s}\t{\\red Scroll left}: {\\green %s}\t{\\red Scroll up}: {\\green %s}\t\t{\\red Scroll down}: {\\green %s}
+
+{\\red Move north}: {\\green %s}\t\t\t{\\red Move south}: {\\green %s}\t\t\t{\\red Move west}: {\\green %s}\t\t\t{\\red Move east}: {\\green %s}
 {\\red Move northeast}: {\\green %s}\t{\\red Move southeast}: {\\green %s}\t{\\red Move northwest}: {\\green %s}\t{\\red Move southwest}: {\\green %s}
-{\\red Examine}: {\\green %s}\t\t{\\red Zap}: {\\green %s}\t\t{\\red Save map}: {\\green %s}\t\t{\\red Restore map}: {\\green %s}
-{\\red Toggle FOV}: {\\green %s}\t\t{\\red Move tree}: {\\green ctrl}
+
+{\\red Climb stairs}: {\\green %s}\t\t{\\red Descend stairs}: {\\green %s}
+
+{\\red Examine}: {\\green %s}\t\t{\\red Zap}: {\\green %s}\t\t{\\red Toggle FOV}: {\\green %s}\t\t{\\red Move tree}: {\\green ctrl}
+
+{\\red More ambient light:} {\\green %s}\t\t{\\red Less ambient light}: {\\green %s}
+
+{\\red Save game}: {\\green %s}\t\t{\\red Restore game}: {\\green %s}
 
 [Press {\\green %s} to dismiss this help]
 """ % (findKey("quit", testCommands), 
        findKey("fps", testCommands),
-       findKey("makeMap1", testCommands),
+       findKey("reset game", testCommands),
+       '{\\green %s}' % parole.conf.console.consoleKey,
        findKey('scroll right', testCommands),
        findKey('scroll left', testCommands),
        findKey('scroll up', testCommands),
@@ -135,12 +183,17 @@ def help():
        findKey('southeast', walkCommands),
        findKey('northwest', walkCommands),
        findKey('southwest', walkCommands),
+       findKey('up', walkCommands),
+       findKey('down', walkCommands),
        findKey('examine', walkCommands),
        findKey('zap', walkCommands),
+       findKey('toggle fov', walkCommands),
+       findKey('more ambient', walkCommands),
+       findKey('less ambient', walkCommands),
        findKey('save', walkCommands),
        findKey('restore', walkCommands),
-       findKey('toggle fov', walkCommands),
-       findKey('dismiss', testCommands))
+       findKey('dismiss', testCommands),
+      )
 
     helpBox = util.messageBox(helpText, textWidth=480)
     
@@ -166,8 +219,8 @@ def handleTest(command):
         data['mapframe'].scrollTiles(0, 1)
     elif command == 'scroll up':
         data['mapframe'].scrollTiles(0, -1)
-    elif command == "makeMap1":
-        newMap()
+    elif command == "reset game":
+        resetGame()
     elif command == "help":
         if not helpBox:
             help()
@@ -196,6 +249,8 @@ def handleWalk(command):
 
     displacement = (0,0)
     moveTree = 'tree' in command
+    if moveTree and not data['tree']:
+        return
 
     if command in ['north','treenorth']:
         displacement = (0,-1)
@@ -213,6 +268,16 @@ def handleWalk(command):
         displacement = (1, 1)
     elif command in ['southwest', 'treesouthwest']:
         displacement = (-1,1)
+    elif command == 'more ambient':
+        map.setAmbientLight(map.ambientRGB, min(1., 
+                                                map.ambientIntensity + 0.05))
+        map.update()
+        return
+    elif command == 'less ambient':
+        map.setAmbientLight(map.ambientRGB, max(0., 
+                                                map.ambientIntensity - 0.05))
+        map.update()
+        return
     elif command in ('examine', 'zap'):
         if lookAnnote:
             if zapping:
@@ -245,7 +310,9 @@ def handleWalk(command):
         time = parole.time()
         data['mapframe'].setMap(None)
         f = bz2.BZ2File('mapsave.sav', 'w')
-        saveData = (map, player, data['light'], data['tree'])
+        saveData = (data['outdoors'], data['dungeon'], data['dungeonStairs'],
+                data['outdoorsStairs'], data['currentMap'], player,
+                data['light'], data['tree'])
         cPickle.dump(saveData, f, protocol=-1)
         f.close()
         data['mapframe'].setMap(map)
@@ -255,25 +322,31 @@ def handleWalk(command):
         parole.info('Map save time: %dms', time)
         parole.display.scene.remove(mbox)
         return
+
     elif command == 'restore':
         mbox = util.messageBox('Restoring...')
         parole.display.update()
+        
         if lookAnnote:
             data['mapframe'].removeAnnotation(lookAnnote)
             lookAnnote = None
         data['mapframe'].setMap(None)
         time = parole.time()
         f = bz2.BZ2File('mapsave.sav', 'r')
-        map, player, data['light'], data['tree'] = cPickle.load(f)
-        #sd = cPickle.load(f)
+        (data['outdoors'], data['dungeon'], data['dungeonStairs'],
+            data['outdoorsStars'], data['currentMap'], player, data['light'],
+            data['tree']) = cPickle.load(f)
         f.close()
-        data['mapframe'].setMap(map)
-        if data['fov']:
-            data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
+
         time = (parole.time() - time) or 1
         parole.info('Map restore time: %dms', time)
         parole.display.scene.remove(mbox)
+        parole.display.update()
+
+        setMap(data['currentMap'], player.pos, False)
+        parole.debug('leaving restore')
         return
+
     elif command == 'toggle fov':
         mbox = util.messageBox('Patience...')
         parole.display.update()
@@ -283,6 +356,30 @@ def handleWalk(command):
             data['mapframe'].bindVisibilityToFOV(player, 16, remember=True)
         data['fov'] = not data['fov']
         parole.display.scene.remove(mbox)
+        return
+    elif command == 'down':
+        for obj in map[player.pos]:
+            if obj.name == 'a stairway leading down':
+                message('You climb down.')
+                if not data['dungeon']:
+                    mbox = util.messageBox('Creating (shitty) dungeon...')
+                    parole.display.update()
+                    dungeon, playerPos = mapgen.makeDungeonMap(data)
+                    data['dungeon'] = dungeon
+                    data['dungeonStairs'] = playerPos
+                    parole.display.scene.remove(mbox)
+                    parole.display.update()
+                setMap(data['dungeon'], data['dungeonStairs'])
+                return
+        message('There are no downward stairs here.')
+        return
+    elif command == 'up':
+        for obj in map[player.pos]:
+            if obj.name == 'a stairway leading up':
+                message('You climb up.')
+                setMap(data['outdoors'], data['outdoorsStairs'])
+                return
+        message('There are no upward stairs here.')
         return
         
     if data['msg3Shader'].text:
@@ -329,12 +426,14 @@ def handleWalk(command):
 
 
     map[curPos].remove(moveTree and data['tree'] or player)
-    if not moveTree: data['light'].remove(map)
-    data['light'].rgb = random.choice([colors['Orange'],
-        colors['Chocolate'], colors['Coral'], colors['Yellow'],
-        colors['Pink']])
+    data['light'].remove(map)
+    #data['light'].rgb = random.choice([colors['Orange'],
+    #    colors['Chocolate'], colors['Coral'], colors['Yellow'],
+    #    colors['Pink']])
     map[newPos].add(moveTree and data['tree'] or player)
-    if not moveTree: data['light'].apply(map, newPos)
+    data['light'].apply(map, player.pos)
+
+    data['mapframe'].centerAtTile(newPos)
 
     # This works, but is too slow without some sort of pre-caching and/or
     # optimization: animated water (each application uses random new
