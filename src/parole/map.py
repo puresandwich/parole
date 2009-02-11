@@ -1844,6 +1844,7 @@ class CellularAutomataGenerator(Generator):
 
     def apply(self, map, rect=None):
         rect = (rect or map.rect()).clip(map.rect())
+        #parole.debug('%s: applying to %r', self, rect)
         #super(CellularAutomataGenerator, self).apply(map, rect)
         seedArray = [[random.random() <= self.seedProb for j in \
             range(rect.w + 2*int(self.seedEdges))] for i in range(rect.h +\
