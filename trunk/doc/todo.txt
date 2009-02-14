@@ -143,12 +143,12 @@ Features:
 [x]     Perlin noise generator
 [x] Map state saving/loading
 [x]     Pickling shaders (without pickling Surfaces)
-[.] FOV
+[x] FOV
 [x]     Integrate MacDonald's code; Map2D.filedOfView wrapper
 [x]     Selective quadrant FOV
 [x]     Circular FOV
-[.]     Binding a MapFrame to a MapObject's field of view
-[ ]         Generalized callbacks
+[x]     Binding a MapFrame to a MapObject's field of view
+[x]         Generalized callbacks
 [x]     Ability for MapFrame to "remember" seen but no longer visible tiles
 [x]     Be selective about quadrants updated for MapFrame FOV
 [x] Tile highlighting and selecting
@@ -159,10 +159,10 @@ Features:
 [x]     Annotations of tiles offscreen (should be better)
 [x]     Overlays should show up on remembered but unseen tiles.
 [x]     Handle overlays on unseen, unremembered tiles.
-[.] Lighting and LightSources
+[x] Lighting and LightSources
 [x]     Basics
 [x]     Light blockers moving through light
-[ ]     Generalize light blocking test
+[x]     Generalize light blocking test
 [-]     Some optimization of AsciiTile.applyLight() - a cache?
 [x] Upgrade to PyGame 1.8.1
 [x] Add psyco support.
@@ -172,7 +172,7 @@ Features:
     [x] Setuptools for the engine itself.
     [ ] Make it easy to create a new stub of a game (with its own setuptools).
     [ ] Make it easy to package a game for distribution.
-[ ] Generic Rooms-and-corridors dungeon generator
+[x] Generic Rooms-and-corridors dungeon generator
 
 0.5.0 Completed on:
 ----------------------------------------------------

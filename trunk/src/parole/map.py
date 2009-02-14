@@ -22,7 +22,7 @@ TODO: Map library docs.
 import parole, shader, resource, pygame
 from pygame import Rect
 from colornames import colors
-import gc, random, math
+import gc, random, math, random
 import fov, perlin
 from shader import clampRGB
 
@@ -255,7 +255,8 @@ class MapFrame(shader.Frame):
         """
         pass
 
-    def bindVisibilityToFOV(self, obj, radius, remember=True):
+    def bindVisibilityToFOV(self, obj, radius, remember=True,
+            inFOVCallback=None, leaveFOVCallback=None):
         """
         Causes the L{MapFrame} to only display L{Tile}s of the map that are within
         the field of view of the given L{MapObject}, which must be located
@@ -267,6 +268,12 @@ class MapFrame(shader.Frame):
         @param remember: Whether to continue displaying tiles that were at one
         time in C{obj}'s field of view but are no longer. TODO: a way to
         display remembered tiles differently than currently visible ones.
+        @param inFOVCallback: An optional C{callable} object to be invoked
+        whenever the field-of-view is updated. It should accept a C{set} of
+        the C{Tile}s found to be visible.
+        @param leaveFOVCallback: An optional C{callable} object to be invoked
+        whenever the field-of-view is updated. It should accept a C{set} of
+        the previously visible C{Tile}s that have left the field-of-view.
         """
         self.__map.unmonitorNearby(self.__fovObj)
 
@@ -283,6 +290,8 @@ class MapFrame(shader.Frame):
             self.__touchFOVQuadrant(obj, [(obj, obj.pos)])
         else:
             self.__enableAll()
+        self.inFOVCallback = inFOVCallback
+        self.leaveFOVCallback = leaveFOVCallback
 
     def __disableAll(self):
         if self.__map:
@@ -339,7 +348,11 @@ class MapFrame(shader.Frame):
         self.__map.fieldOfView(self.__fovObj.pos, self.__fovRad, fovVisit,
                 quadrants=self.__dirtyFovQuads)
 
-        for (x,y) in self.visibleTiles - newVisibleTiles:
+        formerlyVisibleTiles = self.visibleTiles - newVisibleTiles
+        if self.leaveFOVCallback:
+            self.leaveFOVCallback(formerlyVisibleTiles)
+
+        for (x,y) in formerlyVisibleTiles:
             if self.__rememberSeenTiles:
                 self.__map[x,y].clearFrozenShader()
                 self.__grid[x,y] = self.__map[x,y].frozenShader()
@@ -350,6 +363,9 @@ class MapFrame(shader.Frame):
 
         self.visibleTiles = newVisibleTiles
         self.__dirtyFovQuads.clear()
+
+        if self.inFOVCallback:
+            self.inFOVCallback(self.visibleTiles)
 
     def inFOV(self, tile):
         """
@@ -648,6 +664,28 @@ class MapFrame(shader.Frame):
 
         annoteRect.midright = tileRect.midleft
         yield annoteRect.move(-diagComp, 0)
+
+#==============================================================================
+
+class ReticleOverlayShader(shader.Shader):
+    def __init__(self, size, rgb=colors['Gold']):
+        super(ReticleOverlayShader, self).__init__("ReticleOverlay", size=size)
+        # left vertical bevel
+        vbl = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
+        vbl.size = (vbl.size[0], size[1])
+        self.addPass(vbl, pos=(0,0))
+        # right vertical bevel
+        vbr = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
+        vbr.size = (vbr.size[0], size[1])
+        self.addPass(vbr, pos=(size[0]-vbr.size[0],0))
+        # top horizontal bevel
+        hbt = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
+        hbt.size = (size[0], hbt.size[1])
+        self.addPass(hbt, pos=(0,0))
+        # bottom horizontal bevel
+        hbb = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
+        hbb.size = (size[0], hbb.size[1])
+        self.addPass(hbb, pos=(0,size[1]-hbb.size[1]))
 
 #==============================================================================
 
@@ -1282,7 +1320,10 @@ class Map2D(object):
             quadrants=None):
         time = parole.time()
         def defaultIsBlocked(x, y):
-            return bool([o for o in self[x,y] if o.blocksLOS])
+            for obj in self[x,y]:
+                if obj.blocksLOS:
+                    return True
+            return False
 
         fov.fieldOfView(pos[0], pos[1], self.cols, self.rows, radius,
                 visitFunc, isBlocked or defaultIsBlocked, quadrants=quadrants)
@@ -1438,17 +1479,24 @@ def bresenhamPoints((x0, y0), (x1, y1)):
 
 #==============================================================================
 
+def objectBlocksLOS(obj):
+    return obj.blocksLOS
+
+#==============================================================================
+
 # TODO: Eventually move this to something equivalent in sim?
 class LightSource(object):
-    def __init__(self, rgb, intensity, fallOff=1.0):
+    minIntensity = 0.03
+
+    def __init__(self, rgb, intensity, fallOff=1.0, blockTest=objectBlocksLOS):
         self.rgb = rgb
         self.intensity = intensity
         self.radius = 0
         self.distIntensities = {}
         self.fallOff = fallOff
-        self.minIntensity = 0.03
         self.appliedTiles = {}
         self.pos = None
+        self.blockTest = blockTest
         self.calcRadius()
 
     def copy(self):
@@ -1499,8 +1547,15 @@ class LightSource(object):
             t.addLight(self.rgb, intensity)
             #t.applyLight()
 
-        map.fieldOfView(pos, self.radius, visit)
-        map.monitorNearby(map[pos], self.radius, self, objectBlocksLOS)
+        def tileBlocked(x,y):
+            t = map[x,y]
+            for obj in t:
+                if self.blockTest(obj):
+                    return True
+            return False
+
+        map.fieldOfView(pos, self.radius, visit, isBlocked=tileBlocked)
+        map.monitorNearby(map[pos], self.radius, self, self.blockTest)
         self.pos = pos
         #parole.debug('LightSource.apply: time = %sms', parole.time() - time)
 
@@ -1526,13 +1581,6 @@ class LightSource(object):
         # of the light source between calls?
         self.remove(tile.map)
         self.apply(tile.map, (tile.col, tile.row))
-
-#==============================================================================
-
-def objectBlocksLOS(obj):
-    # TODO: should really be something like obj.canBlockLOS, for responding
-    # to objects start/stop blocking light
-    return obj.blocksLOS
 
 #==============================================================================
 
@@ -1866,24 +1914,187 @@ class CellularAutomataGenerator(Generator):
 
 #==============================================================================
 
-class ReticleOverlayShader(shader.Shader):
-    def __init__(self, size, rgb=colors['Gold']):
-        super(ReticleOverlayShader, self).__init__("ReticleOverlay", size=size)
-        # left vertical bevel
-        vbl = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
-        vbl.size = (vbl.size[0], size[1])
-        self.addPass(vbl, pos=(0,0))
-        # right vertical bevel
-        vbr = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
-        vbr.size = (vbr.size[0], size[1])
-        self.addPass(vbr, pos=(size[0]-vbr.size[0],0))
-        # top horizontal bevel
-        hbt = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
-        hbt.size = (size[0], hbt.size[1])
-        self.addPass(hbt, pos=(0,0))
-        # bottom horizontal bevel
-        hbb = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
-        hbb.size = (size[0], hbb.size[1])
-        self.addPass(hbb, pos=(0,size[1]-hbb.size[1]))
+class RoomsAndCorridorsGenerator(Generator):
+    def __init__(self, name, rockAreaGenerator, roomBill, diggerClass,
+            floorFunc, connectAdjacent=True, minConnectDist=1,
+            maxConnectDist=14, clearFirst=True):
+        super(RoomsAndCorridorsGenerator, self).__init__(name, clearFirst)
+        self.roomBill = roomBill
+        self.rockAreaGenerator = rockAreaGenerator
+        self.diggerClass = diggerClass
+        self.floorFunc = floorFunc
+        self.connectAdjacent = connectAdjacent
+        self.minConnectDist = minConnectDist
+        self.maxConnectDist = maxConnectDist
 
-#==============================================================================
+    def apply(self, map, rect=None):
+        rect = (rect or map.rect()).clip(map.rect())
+        self.rockAreaGenerator.apply(map, rect)
+
+        # Lay the requested rooms
+        totalRequestedRooms = sum([num for (room, num) in self.roomBill])
+        rooms = []
+        for roomType, nRooms in self.roomBill:
+            for n in xrange(nRooms):
+                self.layRoom(map, rect, roomType, rooms)
+        parole.debug('Laid %d of %d rooms.', len(rooms), totalRequestedRooms)
+
+        # Connect the rooms
+        self.connectRooms(map, rooms, self.diggerClass,
+                self.minConnectDist, self.maxConnectDist, self.connectAdjacent)
+
+        return rooms
+
+    def layRoom(self, map, rect, roomType, rooms, tries=100):
+        # Keep choosing a random location and size for the room until we find one
+        # that doesn't intersect with existing rooms, then place it and return
+        while tries:
+            tries -= 1
+            roomPos = (random.randint(0, rect.right-1),
+                       random.randint(0, rect.bottom-1))
+            room = roomType(roomPos)
+    
+            if not rect.contains(room.rect):
+                # we generated a rectangle not completely enclosed by the map
+                continue
+    
+            if room.rect.collidelist([r.rect for r in rooms]) != -1:
+                # the generated rectangle overlaps with an existing one
+                continue
+    
+            rooms.append(room)
+    
+            room.apply(map)
+    
+    def __corners(self, rect):
+        return (rect.topleft,
+                (rect.topright[0]-1, rect.topright[1]),
+                (rect.bottomleft[0], rect.bottomleft[1]-1),
+                (rect.bottomright[0]-1, rect.bottomright[1]-1))
+
+    def __adjacent(self, room1, room2):
+        return room1.rect.inflate(2,2).colliderect(room2.rect.inflate(2,2))
+    
+    def __perimeter(self, rect):
+        for y in (rect.top, rect.bottom-1):
+            for x in xrange(rect.left, rect.left+rect.w):
+                yield x,y
+        for x in (rect.left, rect.right-1):
+            for y in xrange(rect.top+1, rect.top+rect.h):
+                yield x,y
+
+    def connectRooms(self, map, rooms, diggerClass, minDist, maxDist,
+            adjacents=True):
+        connectedPairs = []
+    
+        if adjacents:
+            for room1 in rooms:
+                for room2 in rooms:
+                    if room1 is room2:
+                        continue
+                    pair1 = (room1, room2)
+                    pair2 = (room2, room1)
+                    if pair1 in connectedPairs or pair2 in connectedPairs:
+                        continue
+    
+                    if self.__adjacent(room1, room2):
+                        connectedPairs.append(pair1)
+                        connectedPairs.append(pair2)
+                        #parole.debug('adjacent: %r, %r', room1, room2)
+                        self.__connectAdjacent(map, room1, room2)
+    
+        for room1 in rooms:
+            otherRooms = [r for r in rooms if r is not room1]
+            otherRects = [r.rect for r in rooms if r is not room1]
+            for inflation in xrange(minDist, maxDist+1):
+                parole.debug('inflation %s', inflation)
+                inflRoom1 = room1.rect.inflate(inflation, inflation)
+                for otherIdx in inflRoom1.collidelistall(otherRects):
+                    room2 = otherRooms[otherIdx]
+                    pair1 = (room1, room2)
+                    pair2 = (room2, room1)
+                    if pair1 in connectedPairs or pair2 in connectedPairs:
+                        continue
+    
+                    self.connectDistant(map, room1, room2, rooms, diggerClass())
+                    connectedPairs.append(pair1)
+                    connectedPairs.append(pair2)
+
+    def __connectAdjacent(self, map, room1, room2):
+        perim = list(self.__perimeter(room1.rect))
+        random.shuffle(perim)
+        rm2Infl = room2.rect.inflate(2,2)
+        for x,y in perim:
+            if rm2Infl.collidepoint(x,y):
+                if (x,y) not in self.__corners(room1.rect) and (x,y) not in self.__corners(rm2Infl):
+                    map[x,y].clear()
+                    map[x,y].add(self.floorFunc(room1))
+                    for (x2,y2) in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):
+                        if room2.rect.collidepoint(x2,y2):
+                            map[x2,y2].clear()
+                            map[x2,y2].add(self.floorFunc(room1))
+                            if (x2,y2) in self.__corners(room2.rect):
+                                for (x3,y3) in ((x2+1,y2),(x2-1,y2),(x2,y2+1),(x2,y2-1)):
+                                    if room2.rect.collidepoint(x3,y3):
+                                        map[x3,y3].clear()
+                                        map[x3,y3].add(self.floorFunc(room1))
+                            return
+                    return
+
+    def __sign(self, x):
+        if x > 0:
+            return 1
+        if x < 0:
+            return -1
+        return 0
+    
+    def __neighbors(self, (x,y)):
+        yield x+1, y
+        yield x-1, y
+        yield x, y+1
+        yield x, y-1
+        yield x+1, y+1
+        yield x+1, y-1
+        yield x-1, y+1
+        yield x-1, y-1
+
+    def connectDistant(self, map, room1, room2, allRooms, digger):
+        #parole.debug('Connecting distant rooms: %r, %r', room1, room2)
+        p1 = room1.diggableOut()
+        p2 = room2.diggableIn()
+    
+        while 1:
+            startPos = random.choice(p1)
+            endPos = random.choice(p2)
+            dPos = (self.__sign(endPos[0]-startPos[0]),
+                    self.__sign(endPos[1]-startPos[1]))
+            if room1.rect.collidepoint(startPos[0] + dPos[0], 
+                                       startPos[1] + dPos[1]):
+                continue
+            else:
+                break
+    
+        x, y = startPos
+        digger.digTile(map, map[x,y], room1, room2, allRooms)
+        dx, dy = dPos
+        movingX = random.choice((True, False))
+        while (x,y) != endPos:
+            if movingX:
+                nx = x+dx
+                ny = y
+            else:
+                nx = x
+                ny = y+dy
+    
+            if room1.rect.collidepoint(nx,ny):
+                movingX = not movingX
+                continue
+    
+            if not digger.digTile(map, map[nx,ny], room1, room2, allRooms):
+                break
+            x, y = nx, ny
+            if x == endPos[0] and y != endPos[1]:
+                movingX = False
+            elif x != endPos[0] and y == endPos[1]:
+                movingX = True
+

@@ -212,7 +212,7 @@ def makeDungeonMap(data):
     }
     rockAreaGenerator =  parole.map.CellularAutomataGenerator("rockAreaGenerator",
             0.35, rockConditions, seedEdges=True)
-    rockAreaGenerator.apply(map)
+    #rockAreaGenerator.apply(map)
 
     # Figure out what rooms will (try to) be on this map
     # The format is an ordered list of (room, num) tuples, indicating the order
@@ -220,17 +220,10 @@ def makeDungeonMap(data):
     roomBill = [
         (BrazierRoom,   20) # generate 20 brazier-rooms
     ]
-    totalRequestedRooms = sum([num for (room, num) in roomBill])
 
-    # Add the requested rooms
-    rooms = []
-    for roomType, nRooms in roomBill:
-        for n in xrange(nRooms):
-            layRoom(map, roomType, rooms)
-    parole.debug('Laid %d of %d rooms.', len(rooms), totalRequestedRooms)
-
-    # Connect the rooms
-    connectRooms(map, rooms, BrazierDigger, 1, 14)
+    roomsAndCorridorsGen = parole.map.RoomsAndCorridorsGenerator('dungeon gen',
+            rockAreaGenerator, roomBill, BrazierDigger, makeFloor)
+    rooms = roomsAndCorridorsGen.apply(map)
 
     # place the stairs in one of the rooms
     stairRoom = random.choice(rooms)
@@ -322,33 +315,6 @@ class BrazierRoom(object):
     def diggableIn(self):
         return [p for p in perimeter(self.rect) if p not in corners(self.rect)]
 
-def layRoom(map, roomType, rooms):
-    # number of times to try laying the room before giving up
-    tries = 100
-
-    # Keep choosing a random location and size for the room until we find one
-    # that doesn't intersect with existing rooms, then place it and return
-    while tries:
-        tries -= 1
-        roomPos = (random.randint(0, map.cols-1),
-                   random.randint(0, map.rows-1))
-        room = roomType(roomPos)
-
-        if not map.rect().contains(room.rect):
-            # we generated a rectangle not completely enclosed by the map
-            continue
-
-        if room.rect.collidelist([r.rect for r in rooms]) != -1:
-            # the generated rectangle overlaps with an existing one
-            continue
-
-        rooms.append(room)
-
-        room.apply(map)
-        return True
-
-    return False
-
 def corners(rect):
     return (rect.topleft,
             (rect.topright[0]-1, rect.topright[1]),
@@ -364,45 +330,6 @@ class Brazier(TestMapObject):
                                                    random.randint(200,255)), 
                                                   4.0 + 2.0*random.random())
 
-def connectRooms(map, rooms, diggerClass, minDist, maxDist, adjacents=True):
-    connectedPairs = []
-
-    if adjacents:
-        for room1 in rooms:
-            for room2 in rooms:
-                if room1 is room2:
-                    continue
-                pair1 = (room1, room2)
-                pair2 = (room2, room1)
-                if pair1 in connectedPairs or pair2 in connectedPairs:
-                    continue
-
-                if adjacent(room1, room2):
-                    connectedPairs.append(pair1)
-                    connectedPairs.append(pair2)
-                    #parole.debug('adjacent: %r, %r', room1, room2)
-                    connectAdjacent(map, room1, room2)
-
-    for room1 in rooms:
-        otherRooms = [r for r in rooms if r is not room1]
-        otherRects = [r.rect for r in rooms if r is not room1]
-        for inflation in xrange(minDist, maxDist+1):
-            parole.debug('inflation %s', inflation)
-            inflRoom1 = room1.rect.inflate(inflation, inflation)
-            for otherIdx in inflRoom1.collidelistall(otherRects):
-                room2 = otherRooms[otherIdx]
-                pair1 = (room1, room2)
-                pair2 = (room2, room1)
-                if pair1 in connectedPairs or pair2 in connectedPairs:
-                    continue
-
-                connectDistant(map, room1, room2, rooms, diggerClass())
-                connectedPairs.append(pair1)
-                connectedPairs.append(pair2)
-
-def adjacent(room1, room2):
-    return room1.rect.inflate(2,2).colliderect(room2.rect.inflate(2,2))
-
 def perimeter(rect):
     for y in (rect.top, rect.bottom-1):
         for x in xrange(rect.left, rect.left+rect.w):
@@ -410,39 +337,6 @@ def perimeter(rect):
     for x in (rect.left, rect.right-1):
         for y in xrange(rect.top+1, rect.top+rect.h):
             yield x,y
-
-def connectAdjacent(map, room1, room2):
-    perim = list(perimeter(room1.rect))
-    random.shuffle(perim)
-    rm2Infl = room2.rect.inflate(2,2)
-    for x,y in perim:
-        if rm2Infl.collidepoint(x,y):
-            if (x,y) not in corners(room1.rect) and (x,y) not in corners(rm2Infl):
-                map[x,y].clear()
-                map[x,y].add(adjacentFloor(room1))
-                for (x2,y2) in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):
-                    if room2.rect.collidepoint(x2,y2):
-                        map[x2,y2].clear()
-                        map[x2,y2].add(adjacentFloor(room1))
-                        if (x2,y2) in corners(room2.rect):
-                            for (x3,y3) in ((x2+1,y2),(x2-1,y2),(x2,y2+1),(x2,y2-1)):
-                                if room2.rect.collidepoint(x3,y3):
-                                    map[x3,y3].clear()
-                                    map[x3,y3].add(adjacentFloor(room1))
-                        return
-                return
-
-def adjacentFloor(room):
-    return TestMapObject('a dirt floor', 0, parole.map.AsciiTile(' ',
-        (random.randint(0,64),random.randint(0,64),random.randint(0,96)),
-        bg_rgb=interpolateRGB(room.floorColor1, room.floorColor2, room.mixture)))
-
-def sign(x):
-    if x > 0:
-        return 1
-    if x < 0:
-        return -1
-    return 0
 
 def neighbors((x,y)):
     yield x+1, y
@@ -454,45 +348,10 @@ def neighbors((x,y)):
     yield x-1, y+1
     yield x-1, y-1
 
-def connectDistant(map, room1, room2, allRooms, digger):
-    #parole.debug('Connecting distant rooms: %r, %r', room1, room2)
-    p1 = [p for p in perimeter(room1.rect) if p not in corners(room1.rect)]
-    p2 = [p for p in perimeter(room2.rect) if p not in corners(room2.rect)]
-    #p1 = room1.diggableOut()
-    #p2 = room2.diggableIn()
-
-    while 1:
-        startPos = random.choice(p1)
-        endPos = random.choice(p2)
-        dPos = (sign(endPos[0]-startPos[0]), sign(endPos[1]-startPos[1]))
-        if room1.rect.collidepoint(startPos[0] + dPos[0], startPos[1] + dPos[1]):
-            continue
-        else:
-            break
-
-    x, y = startPos
-    digger.digTile(map, map[x,y], room1, room2, allRooms)
-    dx, dy = dPos
-    movingX = random.choice((True, False))
-    while (x,y) != endPos:
-        if movingX:
-            nx = x+dx
-            ny = y
-        else:
-            nx = x
-            ny = y+dy
-
-        if room1.rect.collidepoint(nx,ny):
-            movingX = not movingX
-            continue
-
-        if not digger.digTile(map, map[nx,ny], room1, room2, allRooms):
-            break
-        x, y = nx, ny
-        if x == endPos[0] and y != endPos[1]:
-            movingX = False
-        elif x != endPos[0] and y == endPos[1]:
-            movingX = True
+def makeFloor(room):
+    return TestMapObject('a dirt floor', 0, parole.map.AsciiTile(' ',
+        (random.randint(0,64),random.randint(0,64),random.randint(0,96)),
+        bg_rgb=interpolateRGB(room.floorColor1, room.floorColor2, room.mixture)))
 
 
 class BrazierDigger(object):
@@ -512,7 +371,7 @@ class BrazierDigger(object):
             elif obj.name == "a dirt floor":
                 hasFloor = True
         if not hasFloor:
-            tile.add(adjacentFloor(srcRoom))
+            tile.add(makeFloor(srcRoom))
     
         def addDoor():
             for n in neighbors((tile.col, tile.row)):
