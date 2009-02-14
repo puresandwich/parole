@@ -116,8 +116,23 @@ Features:
 This version fleshes out maps. Utility functions for map generation, field of
 view calculations, lighting, saving/loading, and on-screen message placement.
 
+Documentation:
+[x] base.py
+[x] console.py
+[ ] display.py
+[x] fov.py
+[ ] input.py
+[ ] map.py
+[x] perlin.py
+[x] resource.py
+[ ] shader.py
+[x] splash.py
+[ ] __init__.py package overview
+[.] Wiki
+    [.] Features
+    [ ] Tutorial
+
 Bugs:
-[.] More documentation.
 [x] ScrollView needs to be sped up a bit for largish maps
     - ScrollView is now significantly faster in cases where it has only one
       pass (which is normal for maps, text, etc.).

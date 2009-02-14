@@ -553,7 +553,7 @@ def getModule(name, addToSysModules=True):
     it were truly imported.
     @type addToSysModules: C{bool}
 
-    @return C{module}. The module's name will be derived from that of the script
+    @return: C{module}. The module's name will be derived from that of the script
     resource, with directories corresponding to packages. For example,
     "scripts/util.py" results in a module called "scripts.util".
     """
