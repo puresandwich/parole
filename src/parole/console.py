@@ -16,30 +16,84 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-Console module pydocs.
+Provides an in-game interactive python interpreter. Simply request the
+C{"console"} module on engine startup, and your users will be able to press the
+console key (C{"~"} by default; controlled by the C{console.consoleKey}
+configuration variable) at any time to call up the console. Once active, it will
+handle all input, providing an interactive python interpreter with a command
+history and scrollable text display.
+
+The interpreter runs with the C{console} module's C{globals()} as its namespace.
+The C{parole} package will be available for interactive use automatically, and
+you may expose your own objects to the intepreter via L{parole.console.interpreter},
+which is an instance of the standard library C{code.InteractiveConsole} class.
 """
 
 import code, sys, traceback, logging, cStringIO
 import parole, config, input, resource, shader, display
-#from pygame.locals import *
 
 #==============================================================================
 
 consoleKey = '~'
+"""
+The key that the engine listens for to show/hide the console. Updated by changes
+to C{parole.conf.console.consoleKey}.
+"""
+
 frame = None
-stderr = None
+"""
+The L{Frame} shader responsible for displaying the console.
+"""
+
 stdout = None
-logHandler = None
+"""
+The console will redirect C{sys.stdout} to itself; this module variable will be
+set to refer to the original C{sys.stdout} object.
+"""
+
 interpreter = None
-history = None
-historyPos = 0
-logFile = 'console.log'
+"""
+The actual interpreter object, an instance of C{code.InteractiveConsole}.
+"""
+
 historyFile = 'console.hst'
+"""
+The console will keep a list of previously entered commands, so that the user
+may quickly retrieve them. This variable names the file in which the console
+should store this list, so that it persists across executions of the engine.
+Updated automatically by C{parole.conf.console.historyFile}.
+"""
+
+history = None
+"""
+The actual history maintained by the console as a C{list} of C{string}s.
+"""
+
+historyPos = 0
+"""
+The current position in the L{history} list, used by the console as the user
+cycles through previous commands.
+"""
+
+logFile = 'console.log'
+"""
+The console keeps a textual log of the interpreter's session; this variable
+names the file where that log is written.
+Updated automatically by C{parole.conf.console.logFile}.
+"""
+
+logHandler = None
+"""
+In addition to output from the interpreter, the console also writes all engine log
+messages of level C{INFO} or higher to its text display; this variable will
+refer to the object that handles these messages.
+"""
 
 #==============================================================================
 
 def __onConfigChange(conf):
-    global consoleKey, ps1, ps2, font, lowerbound, conShader
+    global consoleKey, ps1, ps2, font, lowerbound, conShader, historyFile, \
+        logFile
 
     parole.info('Console key: %s', conf.console.consoleKey)
     consoleKey = conf.console.consoleKey
@@ -52,7 +106,13 @@ def __onConfigChange(conf):
     if frame:
         frame.ps2 = conf.console.ps2
 
-    # TODO: console font, history/log files
+    parole.info('Console history file: "%s"', conf.console.historyFile)
+    historyFile = conf.console.historyFile
+
+    parole.info('Console log file: "%s"', conf.console.logFile)
+    logFile = conf.console.logFile
+
+    # TODO: changing the console font
 
 #==============================================================================
 
@@ -61,8 +121,8 @@ class ConsoleInterpreter(code.InteractiveConsole):
     A subclass of the standard library's C{code.InteractiveConsole} that
     implements the interactive Python interpreter of Parole's console. This is
     basically just a thin wrapper around C{code.InteractiveConsole} that
-    redirects its output to the active C{ConsoleFrame} instance (the
-    C{parole.console.frame} variable). The currently executing file will
+    redirects its output to the active L{ConsoleFrame} instance (the
+    L{parole.console.frame} variable). The currently executing file will
     appear as C{"<parole console>"} in stack traces, and the C{quit} hint
     string is replaced with something more appropriate to the Parole console.
     """
@@ -89,8 +149,6 @@ class ConsoleInterpreter(code.InteractiveConsole):
         """
         Simply writes the given byts to C{frame}, the current C{ConsoleFrame}
         instance, and flushes it. 
-
-        @return: None
         """
         frame.write(bytes)
         frame.flush()
@@ -98,6 +156,12 @@ class ConsoleInterpreter(code.InteractiveConsole):
 #==============================================================================
 
 class ConsoleFrame(shader.Frame):
+    """
+    A L{Frame} shader for displaying the interactive console. It is also the
+    writable object to which all console output is sent. An instance of this
+    class is created (L{parole.console.frame}) on engine startup if the console
+    module was requested.
+    """
 
     def __init__(self, height, font, ps1, ps2):
         borders = (None,None,None, shader.HorizontalBevel((200,200,0),
@@ -161,6 +225,9 @@ class ConsoleFrame(shader.Frame):
         self.log.flush()
 
     def toggleActive(self):
+        """
+        Toggles whether the console is visible and accepting input.
+        """
         if not self.active:
             display.scene.add(self)
             parole.pushUIEventHandler((self.cmdMap, self.readLine))
@@ -173,6 +240,12 @@ class ConsoleFrame(shader.Frame):
             parole.info('Console deactivated.')
 
     def handleCommand(self, cmd):
+        """
+        Handles console interface commands that aren't text-input. Available
+        commands are C{"scroll up"}, C{"scroll down"}, C{"previous"}, and
+        C{"next"}. Their keybindings are controlled by the
+        C{console.commands.keypresses} configuration variables.
+        """
         global historyPos
 
         if cmd == "scroll up":
@@ -203,6 +276,10 @@ class ConsoleFrame(shader.Frame):
                 self.readLine.notify()
 
     def onNewline(self, readline):
+        """
+        Handles the user pressing enter in the readline box; reads the contents
+        of the readline box and sends them to the interpreter.
+        """
         global historyPos
 
         # append the line of input onto the command history
@@ -241,17 +318,12 @@ Python %s on %s
 Type "help", "copyright", "credits" or "license" for more information.
 
 This is an interactive Python interpreter. Use it wisely!
-Console keybindings, at the time of engine start-up:
-%r
 =========================================================
 
-""" % (parole.versionStr, sys.version, sys.platform,
-        parole.conf.console.commands.keypresses,)
+""" % (parole.versionStr, sys.version, sys.platform)
 
 def init():
     """
-    init() -> None
-    
     Initializes the console module. Automatically called during engine 
     startup - user code shouldn't need to use this function.
     """
@@ -332,8 +404,9 @@ def unload():
 def update():
     """
     Updates the state of the console. This is where the console gets the
-    chance to listen for keypresses, etc. Automatically called by the
-    engine each frame.
+    chance to listen for console activation key (C{"~"} by default; controlled
+    by the C{console.consoleKey} configuration variable).  Automatically called
+    by the engine each frame.
     """
 
     # If the console's not active, listen for the console key to activate it   
