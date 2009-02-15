@@ -37,10 +37,8 @@ def __onConfigChange(conf):
         logging.info('Use shiftmap: %s', conf.input.useShiftmap)
         logging.info('Shiftmap: %s', conf.input.shiftmap.name)
         
-def init():
+def __init():
     """
-    init() -> None
-    
     Initializes the input module. Automatically called during engine startup -
     most user code shouldn't need this function.
     """
@@ -51,7 +49,7 @@ def init():
     # push the ui event handler for the input module
     #parole.pushUIEventHandler(handleKeyDown)
     
-def unload():
+def __unload():
     parole.conf.notify(__onConfigChange, False)
 
 #==============================================================================

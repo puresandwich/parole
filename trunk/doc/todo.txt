@@ -119,7 +119,7 @@ view calculations, lighting, saving/loading, and on-screen message placement.
 Documentation:
 [x] base.py
 [x] console.py
-[ ] display.py
+[x] display.py
 [x] fov.py
 [ ] input.py
 [ ] map.py
@@ -128,9 +128,10 @@ Documentation:
 [ ] shader.py
 [x] splash.py
 [ ] __init__.py package overview
+[x] Privatize init() and unload() functions.
 [.] Wiki
     [.] Features
-    [ ] Tutorial
+    [.] Tutorial
 
 Bugs:
 [x] ScrollView needs to be sped up a bit for largish maps
@@ -146,6 +147,7 @@ Bugs:
     - answer: using bad verison of stackless. screw stackless.
 [x] Update copyrights.
 [x] LightSource instancemethod distmons broke map saving.
+[ ] Make sure everything inherits from object.
 
 Features:
 [x] Option to make map font square.
