@@ -94,7 +94,7 @@ def __onConfigChange(conf):
     __gameDir = conf.resource.gamedir
     parole.info('Game directory: %s', __gameDir)
 
-def init():
+def __init():
     """
     Initializes the resource module. Detects and loads all resource pakcages 
     in the gamedir directory. Automatically called during engine 
@@ -141,7 +141,7 @@ def init():
     __inInit = False
     parole.info('Extended image loading available: %s', pygame.image.get_extended())
     
-def unload():
+def __unload():
     parole.conf.notify(__onConfigChange, False)
 
 

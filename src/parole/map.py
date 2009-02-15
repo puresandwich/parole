@@ -56,14 +56,14 @@ def __onConfigChange(conf):
             conf.map.annotationReticleRGB)
     MapFrame.defaultAnnoteReticleRGB = tuple(conf.map.annotationReticleRGB)
 
-def init():
+def __init():
     """
     Initializes the map module. Automatically called during engine 
     startup - user code shouldn't need to use this function.
     """
     parole.conf.notify(__onConfigChange, True)
     
-def unload():
+def __unload():
     """
     Unloads the map module during engine shutdown.
     """

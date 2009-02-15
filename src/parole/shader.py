@@ -31,16 +31,14 @@ from pygame.sprite import *
 from pygame.locals import *
 
 
-def init():
+def __init():
     """
-    init() -> None
-    
     Initializes the shader module. Automatically called during engine startup -
     most user code shouldn't need this function.
     """
     pass
 
-def unload():
+def __unload():
     pass
 
 #==============================================================================

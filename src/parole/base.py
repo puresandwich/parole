@@ -358,7 +358,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Init resource management
     if 'resource' in modules:
         import resource
-        resource.init()
+        resource.__init()
         haveModule['resource'] = True
         info('Resource management up')
     else:
@@ -367,7 +367,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Init the display
     if 'display' in modules:
         import display
-        display.init()
+        display.__init()
         pygame.display.set_caption(caption)
         haveModule['display'] = True
         info('Display up')
@@ -386,7 +386,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     if 'shader' in modules:
         import shader
         import splash
-        shader.init()
+        shader.__init()
         haveModule['shader'] = True
         info('Shaders up')
     else:
@@ -395,7 +395,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Init the input module
     if 'input' in modules:
         import input
-        input.init()
+        input.__init()
         haveModule['input'] = True
         info('Input module up')
     else:
@@ -404,7 +404,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Init the console module
     if 'console' in modules:
         import console
-        console.init()
+        console.__init()
         haveModule['console'] = True
         info('Console up')
     else:
@@ -413,7 +413,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Init the map module
     if 'map' in modules:
         import map
-        parole.map.init()
+        parole.map.__init()
         haveModule['map'] = True
         info('Map module up')
     else:
@@ -477,7 +477,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
                 #parole.debug('Continuous updates: %s', __continuousUpdates)
                 events = pygame.event.get()
             else:
-                events = [pygame.event.wait()]
+                events = (pygame.event.wait(),)
 
             # Give the input module a chance to queue any input events
             if haveModule['input']:
@@ -686,15 +686,15 @@ def __unloadModules(modules):
     # notifications, etc.
     parole.info('Unloading modules: %s', ', '.join(modules))
     if 'resource' in modules:   
-        parole.resource.unload()
+        parole.resource.__unload()
     if 'input' in modules:      
-        parole.input.unload()
+        parole.input.__unload()
     if 'display' in modules:    
-        parole.display.unload()
+        parole.display.__unload()
     if 'shader' in modules:     
-        parole.shader.unload()
+        parole.shader.__unload()
     if 'console' in modules:    
-        parole.console.unload()
+        parole.console.__unload()
     if 'map' in modules:
-        parole.map.unload()
+        parole.map.__unload()
     

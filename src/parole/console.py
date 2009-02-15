@@ -322,7 +322,7 @@ This is an interactive Python interpreter. Use it wisely!
 
 """ % (parole.versionStr, sys.version, sys.platform)
 
-def init():
+def __init():
     """
     Initializes the console module. Automatically called during engine 
     startup - user code shouldn't need to use this function.
@@ -370,7 +370,7 @@ def init():
         parole.warn('Unable to open/load history file "%s".', historyFile)
 
     
-def unload():
+def __unload():
     global history
 
     parole.conf.notify(__onConfigChange, False)
