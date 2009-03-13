@@ -55,6 +55,15 @@ def __onConfigChange(conf):
     parole.info('Map default reticle RGB: %s',
             conf.map.annotationReticleRGB)
     MapFrame.defaultAnnoteReticleRGB = tuple(conf.map.annotationReticleRGB)
+    parole.info('Map default annotation text RGB: %s',
+            conf.map.annotationTextRGB)
+    MapFrame.defaultAnnoteTextRGB = tuple(conf.map.annotationTextRGB)
+    parole.info('Map default annotation text background RGBA: %s',
+            conf.map.annotationTextBgRGBA)
+    if conf.map.annotationTextBgRGBA:
+        MapFrame.defaultAnnoteTextBgRGBA = tuple(conf.map.annotationTextBgRGBA)
+    else:
+        MapFrame.defaultAnnoteTextBgRGBA = None
 
 def __init():
     """
@@ -70,667 +79,7 @@ def __unload():
     parole.conf.notify(__onConfigChange, False)
 
 #==============================================================================
-
-class MapFrame(shader.Frame):
-    """
-    A L{Frame} for displaying a view of a L{Map2D}. Provides a scrollable grid of
-    shaders for displaying the tiles of the map. The tile size must be known
-    in advance, when the C{MapFrame} is created, and must agree with the actual
-    size of the shaders offered by the tiles of the map.
-    """
-
-    defaultAnnoteLineRGB = (255, 255, 0)
-    defaultAnnoteReticleRGB = (255, 255, 0)
-    defaultAnnoteFont = None
-
-    def __init__(self, size, tileSize=None, map=None, borders=(None,)*8,
-            name=None):
-        """
-        Creates a new, empty MapFrame. Use the setMap() method to then display
-        a map in this Frame.
-        """
-        super(MapFrame, self).__init__(borders, size=size, name=name)
-        # private attributes
-        self.__grid = None
-        self.__map = None
-        self.__tileSize = tileSize or AsciiTile.characterSize()
-        self.__scroll = None
-        self.__lastScrollOffset = None
-        self.__fovObj = None
-        self.__fovRad = None
-        self.__dirtyFovQuads = None
-        self.visibleTiles = set()
-        self.__rememberSeenTiles = False
-        self.rememberedTiles = set()
-        self.__annotationsAt = {} # Tile -> (Annotation, Rect)
-
-        # public attributes
-        self.selectedTile = None
-        self.reticle = ReticleOverlayShader(self.__tileSize)
-
-        if map:
-            self.setMap(map)
-
-    def __getstate__(self):
-        parole.warn('MapFrame is being pickled!')
-        return super(MapFrame, self).__getstate__()
-
-    @parole.Property
-    def tileSize():
-        """
-        The expected size in pixels of the Tile shaders of the Map2D instance
-        displayed in this MapFrame. Setting this automatically invokes
-        resetGrid().
-        """
-        def fget(self):
-            return self.__tileSize
-        def fset(self, val):
-            self.__tileSize = val
-            self.resetGrid()
-
-    def setMap(self, map):
-        """
-        Set the Map2D instance to be displayed in this MapFrame. Automatically
-        invokes self.resetGrid(), dirtying the Frame so that it is ready to be
-        rendered on the next update. Pass None to stop displaying anything.
-        """
-        if self.__map and self.__grid:
-            for tile in self.__map:
-                if tile in self.__grid.passes:
-                    self.__grid.remPass(tile)
-                self.__grid[tile.col, tile.row] = None
-        if not map:
-            self.bindVisibilityToFOV(None, None)
-        self.__map = map
-        self.__fovObj = None
-        self.__fovRad = None
-        self.__dirtyFovQuads = None
-        self.resetGrid()
-
-    def getMap(self):
-        """
-        Returns the Map2D instance that this MapFrame is currently displaying a
-        view of, or None if no map has been set.
-        """
-        return self.__map
-
-    def resetGrid(self):
-        """
-        Rebuilds the shader grid used to display the currently set Map2D
-        instance. This is done automatically when setting the map, and should
-        only need to be called manually if you've somehow modified what the
-        MapFrame is rendering, and you want to reset it. Has no effect if the
-        current map is not set.
-        """
-        if self.__scroll in self.passes:
-            if self.__grid:
-                self.__scroll.remPass(self.__grid)
-            self.remPass(self.__scroll)
-
-        if self.__grid:
-            self.__grid.clearPasses()
-
-        if not self.__map:
-            return
-
-        self.__grid = shader.ShaderGrid((self.__map.cols, self.__map.rows),
-                self.tileSize)
-        self.__scroll = shader.ScrollView(self.size)
-        self.__lastScrollOffset = None
-        
-        for x in range(self.__map.cols):
-            for y in range(self.__map.rows):
-                tile = self.__map[x,y]
-                tile.size = self.tileSize
-                tile.touch()
-                self.__grid[x,y] = tile
-
-        self.__scroll.addPass(self.__grid, pos=(0,0))
-        self.addPass(self.__scroll, pos=(0,0))
-        self.__annotationsAt = {}
-
-    def scrollPixels(self, dx, dy):
-        """
-        Translates the view of the map by the given displacement in pixels.
-        """
-        if self.__scroll:
-            self.__scroll.scrollPixels(dx, dy)
-
-    def scrollTiles(self, dx, dy):
-        """
-        Translates the view of the map by the given displacement in tiles.
-        """
-        if self.__scroll:
-            self.__scroll.scrollPixels(dx*self.__tileSize[0],
-                                     dy*self.__tileSize[1])
-
-    def pixelPosToTile(self, posOrX, y=None):
-        """
-        Returns the (col, row) location of the tile containing the map pixel
-        at the given position. Does no bounds checking to ensure that the
-        given point is actually within the bounds of the map.
-        """
-        x, y = type(posOrX) is tuple and posOrX or (x,y)
-        return x / self.__tileSize[0], y / self.__tileSize[1]
-
-    def tilePosToPixel(self, posOrCol, row=None):
-        """
-        Returns the map pixel corresponding to the upper left corner of the
-        tile at the given location.
-        """
-        col, row = type(posOrCol) is tuple and posOrCol or (posOrCol, row)
-        tw, th = self.tileSize
-        return tw*col, th*row
-
-    def setViewOriginToTile(self, posOrCol, row=None):
-        """
-        Set the upper left corner of the view to be the upper left corner of
-        the given tile location.
-        """
-        col, row = type(posOrCol) is tuple and posOrCol or (posOrCol, row)
-        self.__scroll.offset = self.tilePosToPixel(col,row)
-
-    def centerAtTile(self, posOrCol, row=None):
-        """
-        Center the view at the given tile position.
-        """
-        col, row = type(posOrCol) is tuple and posOrCol or (posOrCol, row)
-        cx, cy = self.tilePosToPixel(col, row)
-        tw, th = self.tileSize
-        cx, cy = cx + tw/2, cy + th/2
-        self.__scroll.offset = (cx-self.width/2, cy-self.height/2)
-
-    def viewRectPixels(self):
-        """
-        Returns the rectangle of map pixels currently contained in the Frame's
-        view. 
-        """
-        return self.__scroll.visibleRect()
-
-    def viewRectTiles(self):
-        """
-        Returns the (ceiling of the) rectangle of map tiles currently
-        contained in the Frame's view.  
-        TODO: viewRectTiles()
-        """
-        pass
-
-    def bindVisibilityToFOV(self, obj, radius, remember=True,
-            inFOVCallback=None, leaveFOVCallback=None):
-        """
-        Causes the L{MapFrame} to only display L{Tile}s of the map that are within
-        the field of view of the given L{MapObject}, which must be located
-        somewhere in the currently displayed map. 
-
-        @param obj: The L{MapObject} to whose field of view to bind the
-                   display. Pass C{None} to deactivate any current binding.
-        @param radius: The radius to use in calculating the object's field of view.
-        @param remember: Whether to continue displaying tiles that were at one
-        time in C{obj}'s field of view but are no longer. TODO: a way to
-        display remembered tiles differently than currently visible ones.
-        @param inFOVCallback: An optional C{callable} object to be invoked
-        whenever the field-of-view is updated. It should accept a C{set} of
-        the C{Tile}s found to be visible.
-        @param leaveFOVCallback: An optional C{callable} object to be invoked
-        whenever the field-of-view is updated. It should accept a C{set} of
-        the previously visible C{Tile}s that have left the field-of-view.
-        """
-        self.__map.unmonitorNearby(self.__fovObj)
-
-        self.__fovObj = obj
-        self.__fovRad = (obj and radius) or None
-        self.__dirtyFovQuads = set()
-        self.visibleTiles.clear()
-        self.rememberedTiles.clear()
-        self.__rememberSeenTiles = remember
-        if obj:
-            self.__disableAll()
-            self.__map.monitorNearby(obj, radius, self.__touchFOVQuadrant,
-                    self.__blocksLOS)
-            self.__touchFOVQuadrant(obj, [(obj, obj.pos)])
-        else:
-            self.__enableAll()
-        self.inFOVCallback = inFOVCallback
-        self.leaveFOVCallback = leaveFOVCallback
-
-    def __disableAll(self):
-        if self.__map:
-            for x in xrange(self.__map.cols):
-                for y in xrange(self.__map.rows):
-                    #self.__grid.disable(x, y)
-                    self.__grid[x,y] = self.__map[x,y].overlayShader()
-
-    def __enableAll(self):
-        if self.__map:
-            for x in xrange(self.__map.cols):
-                for y in xrange(self.__map.rows):
-                    #self.__grid.enable(x, y)
-                    self.__grid[x,y] = self.__map[x,y]
-
-    def __blocksLOS(self, obj):
-        #parole.debug('checking if blocks los')
-        return obj.blocksLOS or obj is self.__fovObj
-
-    def __touchFOVQuadrant(self, monObj, objsPos):
-        assert(monObj is self.__fovObj)
-        for (obj, pos) in objsPos:
-            if monObj is obj:
-                # the fov object has moved
-                self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
-            else:
-                self.__dirtyFovQuads.add(self.__map.quadrant(pos, monObj.pos))
-
-        #parole.debug('MapFrame.__touchQuadrant: dirty quads = %s',
-        #        self.__dirtyFovQuads)
-
-    def update(self, *args, **kwargs):
-        if self.__dirtyFovQuads:
-            t = parole.time()
-            self.__updateFOV()
-            parole.debug('update fov time = %sms', parole.time()-t)
-        if self.__scroll and self.__annotationsAt and \
-                self.__scroll.offset != self.__lastScrollOffset:
-            self.__updateAnnotations()
-        if self.__scroll:
-            self.__lastScrollOffset = self.__scroll.offset
-        super(MapFrame, self).update(*args, **kwargs)
-
-    def __updateFOV(self):
-        #parole.debug('dirty fov quads: %s', self.__dirtyFovQuads)
-        newVisibleTiles = set()
-        def fovVisit(x, y):
-            if (x,y) not in self.visibleTiles:
-                    self.__grid[x,y] = self.__map[x,y]
-                    if self.__rememberSeenTiles:
-                        self.rememberedTiles.add((x,y))
-            newVisibleTiles.add((x,y))
-
-        self.__map.fieldOfView(self.__fovObj.pos, self.__fovRad, fovVisit,
-                quadrants=self.__dirtyFovQuads)
-
-        formerlyVisibleTiles = self.visibleTiles - newVisibleTiles
-        if self.leaveFOVCallback:
-            self.leaveFOVCallback(formerlyVisibleTiles)
-
-        for (x,y) in formerlyVisibleTiles:
-            if self.__rememberSeenTiles:
-                self.__map[x,y].clearFrozenShader()
-                self.__grid[x,y] = self.__map[x,y].frozenShader()
-            else:
-                # but what about overlays?
-                #self.__grid.disable(x, y)
-                self.__grid[x,y] = self.__map[x,y].overlayShader()
-
-        self.visibleTiles = newVisibleTiles
-        self.__dirtyFovQuads.clear()
-
-        if self.inFOVCallback:
-            self.inFOVCallback(self.visibleTiles)
-
-    def inFOV(self, tile):
-        """
-        If the view is currently bound to a field of view (see
-        L{bindVisibilityToFOV}, returns C{True} if the given tile is currently
-        visible. If the view is not bound, returns C{True} always.
-        """
-        if self.__fovObj:
-            return (tile.col, tile.row) in self.visibleTiles
-        return True
-
-    def remembered(self, tile):
-        """
-        If the view is currently bound to a field of view (see
-        L{bindVisibilityToFOV}, returns C{True} if the given tile is
-        "remembered". If a tile is in FOV (L{inFOV}) it is also remembered.
-        If the view is not bound, returns C{True} always.
-        """
-        if self.__fovObj:
-            return self.__rememberSeenTiles and \
-                   (tile.col, tile.row) in self.rememberedTiles
-        return True
-
-    def selectTile(self, posOrX, y=None):
-        """
-        A convenience function that applies self.reticle as an overlay at the
-        given position. Only one tile may be selected at a time in this way, and
-        subsequent calls to C{selectTile} will automatically remove the overlay
-        from the previously selected tile. To select no tile call
-        C{selectTile(None)}.
-        """
-        parole.debug('select: %s,%s', posOrX, y)
-        if self.selectedTile:
-            self.selectedTile.removeOverlay(self.reticle)
-        if posOrX is not None:
-            self.selectedTile = self.__map[type(posOrX) is tuple and posOrX\
-                    or (posOrX,y)]
-            self.selectedTile.addOverlay(self.reticle)
-        else:
-            self.selectedTile = None
-        parole.debug('selectedTile = %s', self.selectedTile)
-
-    def annotate(self, tile, shaderOrText, ann=None, lineRGB=None,
-            reticleRGB=None, textFont=None, textWidth=150):
-        """
-        Annotates the given L{Tile} of this L{MapFrame}'s current L{Map2D}.
-        There are three ways to use this method: 
-            1. By supplying an L{Annotation} object (C{ann}) to use directly.
-               Pass C{None} for C{shaderOrText}.
-            2. By giving a L{Shader} object (C{shaderOrText}) from which to
-               construct an L{Annotation}. Pass C{None} for C{ann} (its
-               default).
-            3. By simply giving some text (C{shaderOrText}) from which to
-               construct a basic text-displaying L{Annotation}. Pass C{None} for
-               C{ann} (its default).
-
-        If method 2 or 3 is being used, the remaining keyword arguments
-        (C{lineRGB, reticleRGB, textFont, textWidth}) may be specified to
-        control the appearance of the L{Annotation} that is built. If method 1
-        is used, the L{Annotation} object (C{ann}) overrides any values for
-        these arguments.
-
-        @param tile:         The L{Tile} to annotate. Must be contained in this
-                             L{MapFrame}'s current L{Map2D}.
-        @type tile:          L{Tile}
-        @param shaderOrText: The shader or text from which to construct an
-                             L{Annotation} if one is not being provided through
-                             C{ann}.
-        @type shaderOrText:  L{Shader} or C{str} or C{None}.
-        @param ann:          The L{Annotation} object to place, if one is not
-                             being constructed through the other arguments.
-        @type ann:           L{Annotation} or C{None}.
-        @param lineRGB:      The color of the line linking the annotated L{Tile}
-                             to it's L{Annotation}, if being constructed from a
-                             shader or text.
-        @type lineRGB:       C{(red,green,blue)}-tuple or C{None}.
-        @param reticleRGB:   The color of the reticle overlay place on the
-                             annotated L{Tile} if the annotation is being
-                             constructed from a shader or text.
-        @type reticleRGB:    C{(red,green,blue)}-tuple or C{None}.
-        @param textFont:     The font to render the text in if the L{Annotation}
-                             is being created from text (method 3).
-        @type textFont:      C{pygame.Font}.
-        @param textWidth:    Text wrap-width if the L{Annotation} is being
-                             created from text (method 3).
-        @return:             The L{Annotation} object placed, whether it was
-                             constructed by methods 1 or 2, or specified as in
-                             method 1.
-        """
-        # tile may be a Tile instance or a coordinate tuple -- figure which
-        # Tile we're referring to
-        if type(tile) is tuple and len(tile)==2:
-            tile = self.getMap()[tile]
-        if not isinstance(tile, Tile) or tile not in self.getMap():
-            raise TypeError('tile must be a Tile instance in my Map2D')
-
-        # Generally, shaderOrText can be any Shader, but for convenience, if
-        # it is a string, we create a TextBlock containing that string in a
-        # default font.
-        if isinstance(shaderOrText, parole.shader.Shader):
-            sdr = shaderOrText
-        elif type(shaderOrText) is str:
-            sdr = shader.TextBlockPass(textFont or self.defaultAnnoteFont,
-                    (255,255,255), text=shaderOrText, wrap='word',
-                    wrap_width=textWidth)
-            sdr.update()
-        elif not ann:
-            # if the user didn't specify an Annotation, he has to give us some
-            # text to make one with.
-            raise TypeError('shaderOrText must be a Shader instance or '
-                            'a string.')
-
-        # Create the Annotation object, which will track information about how
-        # we're displaying this annotation
-        ann = ann or Annotation(tile, sdr, lineRGB or
-                self.defaultAnnoteLineRGB, reticleRGB or
-                self.defaultAnnoteReticleRGB)
-
-        # Prepare the annotations list for this tile if necessary
-        if tile not in self.__annotationsAt:
-            self.__annotationsAt[tile] = []
-
-        # Now figure out where to display the annotation...
-        visibleRect = self.__scroll.visibleRect()
-        tileRect = self.__grid.rectOf((tile.col, tile.row))
-        if visibleRect.contains(tileRect):
-            # tile is on screen; find a free cardinal direction around the
-            # tile to place the annotation at
-            for rect in self.__annoteRects(tile, sdr.size):
-                rectFree = True
-                for annote in self.__annotationsAt[tile]:
-                    annoteRect = Rect(self.positionOf[annote],
-                            annote.size)
-                    if rect.colliderect(annoteRect):
-                        rectFree = False
-                        break
-                if rectFree and visibleRect.contains(rect):
-                    self.__placeAnnotation(tile, ann, rect)
-                    ann.prefRect = rect
-                    parole.debug('ann: %r', ann)
-                    return ann
-            #raise "Too many annotations on %r" % tile
-
-        # tile is off screen, or no free cardinal direction was on screen.
-        # TODO: if it's the latter, make sure we don't place the annote on top
-        # of an existing one
-        rect = Rect((0,0), ann.size)
-        rect.center = tileRect.center
-        bufferRect = Rect(rect)
-        bufferRect.size = (rect.w + 2*tileRect.w, rect.h + 2*tileRect.h)
-        bufferRect.center = rect.center
-        bufferRect.clamp_ip(visibleRect)
-        rect.center = bufferRect.center
-        self.__placeAnnotation(tile, ann, rect)
-        ann.prefRect = rect
-        parole.debug('ann: %r', ann)
-        return ann
-
-    def removeAnnotation(self, annotation):
-        """
-        Remove a previously added (via L{annotate}) L{Annotation}.
-
-        @param annotation: The L{Annotation} to remove. This should be the value
-                           returned by L{annotate}.
-        @type annotation: L{Annotation}.
-        """
-        # stop drawing it
-        self.__annotationsAt[annotation.tile].remove(annotation)
-        if not self.__annotationsAt[annotation.tile]:
-            del self.__annotationsAt[annotation.tile]
-        self.remPass(annotation)
-        if annotation.line and annotation.line in self.passes:
-            self.remPass(annotation.line)
-        if annotation.reticle and annotation.reticle in \
-                annotation.tile.overlays:
-            annotation.tile.removeOverlay(annotation.reticle)
-        # make sure the reticle disappears from unseen but remembered tiles
-        tile = annotation.tile
-        if not self.inFOV(tile):
-            if self.__rememberSeenTiles and self.remembered(tile):
-                tile.clearFrozenShader()
-                self.__grid[tile.col,tile.row] = tile.frozenShader()
-            else:
-                self.__grid[tile.col,tile.row] = tile.overlayShader()
-
-    def __placeAnnotation(self, tile, ann, rect):
-        # Prepare the annotations list for this tile if necessary
-        if tile not in self.__annotationsAt:
-            self.__annotationsAt[tile] = []
-
-        # Since we add the annotation to our own passes (rather than to the
-        # scroll or grid), we need to account for the scroll offset
-        ox, oy = self.__scroll.offset
-        annRect = rect.move(-ox, -oy)
-
-        # place the annotation
-        self.addPass(ann, pos=annRect.topleft)
-        self.__annotationsAt[tile].append(ann)
-
-        # add a reticle to the tile
-        reticle = ReticleOverlayShader(tile.size, rgb=ann.reticleRGB)
-        tile.addOverlay(reticle)
-        ann.reticle = reticle
-
-        # handle out of view tiles
-        if not self.inFOV(tile):
-            if self.__rememberSeenTiles and self.remembered(tile):
-                # make sure the reticle appears on unseen but remembered tiles
-                tile.clearFrozenShader()
-                self.__grid[tile.col,tile.row] = tile.frozenShader()
-            else:
-                self.__grid[tile.col,tile.row] = tile.overlayShader()
-
-        # and a line linking the annotation to the tile 
-        tileRect = self.__grid.rectOf((tile.col, tile.row)).move(-ox, -oy)
-        # annote above tile
-        if annRect.bottom < tileRect.top:
-            lineTileY = tileRect.top
-            lineAnnY = annRect.bottom
-            linePosY = annRect.bottom
-        # annote below tile
-        elif annRect.top > tileRect.bottom:
-            lineTileY = tileRect.bottom
-            lineAnnY = annRect.top
-            linePosY = tileRect.bottom
-        else:
-            lineTileY = tileRect.centery
-            lineAnnY = annRect.centery
-            linePosY = annRect.centery
-
-        # annote left of tile
-        if annRect.right < tileRect.left:
-            lineTileX = tileRect.left
-            lineAnnX = annRect.right
-            linePosX = annRect.right
-        # annote right of tile
-        elif annRect.left > tileRect.right:
-            lineTileX = tileRect.right
-            lineAnnX = annRect.left
-            linePosX = tileRect.right
-        else:
-            lineTileX = tileRect.centerx
-            lineAnnX = annRect.centerx
-            linePosX = annRect.centerx
-
-        #if not (lineAnnY == annRect.centery and lineAnnX == annRect.centerx):
-        line = parole.shader.Line((lineAnnX, lineAnnY), (lineTileX, lineTileY),
-                ann.lineRGB)
-
-        #line = parole.shader.Line(annRect.center, tileRect.center,
-        #        self.annoteLineRGB)
-        ann.line = line
-        self.addPass(line, line.defaultPos)
-        #parole.info('line size: %s', line.size)
-        #else:
-        #    ann.line = None
-
-    def __updateAnnotations(self):
-        parole.debug('annotations: %r', self.__annotationsAt)
-        visibleRect = self.__scroll.visibleRect()
-        for tile, anns in self.__annotationsAt.iteritems():
-            for ann in anns:
-                self.removeAnnotation(ann)
-                if visibleRect.contains(ann.prefRect):
-                    self.__placeAnnotation(tile, ann, ann.prefRect)
-                else:
-                    self.annotate(tile, ann.shader, ann)
-
-    def __annoteRects(self, tile, shaderSize):
-        dist = 10.0
-        diagComp = int(math.sqrt((dist**2)/2))
-        dist = int(dist)
-        tileRect = self.__grid.rectOf((tile.col, tile.row))
-        annoteRect = Rect((0,0), shaderSize)
-
-        annoteRect.bottomright = tileRect.topleft
-        yield annoteRect.move(-diagComp, -diagComp)
-
-        annoteRect.midbottom = tileRect.midtop
-        yield annoteRect.move(0, -diagComp)
-
-        annoteRect.bottomleft = tileRect.topright
-        yield annoteRect.move(diagComp, -diagComp)
-
-        annoteRect.midleft = tileRect.midright
-        yield annoteRect.move(diagComp, 0)
-
-        annoteRect.topleft = tileRect.bottomright
-        yield annoteRect.move(diagComp, diagComp)
-
-        annoteRect.midtop = tileRect.midbottom
-        yield annoteRect.move(0, diagComp)
-
-        annoteRect.topright = tileRect.bottomleft
-        yield annoteRect.move(-diagComp, diagComp)
-
-        annoteRect.midright = tileRect.midleft
-        yield annoteRect.move(-diagComp, 0)
-
-#==============================================================================
-
-class ReticleOverlayShader(shader.Shader):
-    def __init__(self, size, rgb=colors['Gold']):
-        super(ReticleOverlayShader, self).__init__("ReticleOverlay", size=size)
-        # left vertical bevel
-        vbl = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
-        vbl.size = (vbl.size[0], size[1])
-        self.addPass(vbl, pos=(0,0))
-        # right vertical bevel
-        vbr = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
-        vbr.size = (vbr.size[0], size[1])
-        self.addPass(vbr, pos=(size[0]-vbr.size[0],0))
-        # top horizontal bevel
-        hbt = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
-        hbt.size = (size[0], hbt.size[1])
-        self.addPass(hbt, pos=(0,0))
-        # bottom horizontal bevel
-        hbb = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
-        hbb.size = (size[0], hbb.size[1])
-        self.addPass(hbb, pos=(0,size[1]-hbb.size[1]))
-
-#==============================================================================
-
-class Annotation(shader.Shader):
-    """
-    An C{Annotation} is a message (or any kind of) window/shader linked to a
-    particular L{Tile} of a L{Map2D} that can be displayed in an associated
-    L{MapFrame}. The C{Annotation} is display placing an overlay reticle on the
-    annotated L{Tile}, and drawing a line from the reticle to the
-    C{Annotation}'s shader, which is automatically positioned near the annotated
-    L{Tile}. Annotated tiles not currently visible in the L{MapFrame} have their
-    shaders placed at the nearest edge of the screen, with a line extending in
-    the direction of the L{Tile}.
-    
-    @param tile: The L{Tile} to annotate.
-    @type tile: L{Tile}.
-    @param shader: The L{Shader} with which to annotate the tile.
-    @type shader: L{Shader}.
-    @param lineRGB: The color of the line linking the tile to the annotation
-                    shader. Pass C{None} for the default color
-                    (L{MapFrame.defaultAnnoteLineRGB}).
-    @type lineRGB: C{(red,green,blue)}-tuple or C{None}.
-    @param reticleRGB: The color of the reticle overlay to apply to the
-                       annotated tile. Pass C{None} for the default color
-                       (L{MapFrame.defaultAnnoteReticleRGB}).
-    @type reticleRGB: C{(red,green,blue)}-tuple or C{None}.
-    """
-
-    def __init__(self, tile, shader, lineRGB=(255,255,255),
-            reticleRGB=(255,255,255)):
-        super(Annotation, self).__init__('Annotation', shader.size)
-        self.prefRect = None
-        self.line = None
-        self.tile = tile
-        self.shader = shader
-        self.reticle = None
-        self.lineRGB = lineRGB
-        self.reticleRGB = reticleRGB
-        self.addPass(shader)
-
-    def __repr__(self):
-        return "Annotation(%r, %r, prefRect=%r, line=%r)" % (self.tile, self.shader,
-                self.prefRect, self.line)
-
-#==============================================================================
+#{ Representation and implementation of 2D maps
 
 class MapObject(object):
     """
@@ -820,29 +169,45 @@ class MapObject(object):
 
 class Tile(shader.Shader):
     """
-    TODO: rewrite this doc - we're no longer a set.
-    A C{Tile} is simultaneously a C{set} of C{MapObject}s located at the same
-    position in some C{Map2D}, and a C{Shader} that implements some method of
+    A L{Tile} is simultaneously a container of L{MapObject}s located at the same
+    position in some L{Map2D}, and a L{Shader} that implements a method of
     displaying the map position, given what objects are located there. The
-    default method provided by the C{Tile} class is to display the C{shader}
-    attribute of the C{MapObject} with the highest layer, and possibly, if the
-    highest C{MapObject} does not have a C{bgShader} attribute, the
-    C{bgShader} attribute of the highest-layer object that does have one.
+    default method provided by the L{Tile} class is to display the C{shader}
+    attribute of the L{MapObject} with the highest C{layer}, and possibly, if
+    the highest L{MapObject} does not have a C{bgShader} attribute, the
+    C{bgShader} attribute of the highest-layer object that does have one. User
+    code display L{Tile} contents in a different way by subclassing L{Tile} and
+    overriding the L{resetPasses} method (the C{tileType} argument to
+    L{Map2D.__init__} allows you to create L{Map2D} instances with your custom
+    L{Tile} subclass).
 
-    A C{Tile} also has a user readable/writable C{luminosities} attribute,
-    which is a list of C{Luminosity} objects that should be applied to the
-    display of the C{Tile} when its C{applyLuminosities} method is called.
+    A L{Tile} instance is fully picklable, assuming that all of its contents
+    are.
+
+    @ivar contents: Contains the L{MapObject}s located in this L{Tile}.
+    @type contents: C{set}
+    @ivar map: A reference to the L{Map2D} instance containing this L{Tile}.
+    @type map: L{Map2D}
+    @ivar row: The row-coordinate of this L{Tile}'s location within its
+    L{Map2D}.
+    @type row: C{int}
+    @ivar col: The column-coordinate of this L{Tile}'s location within its
+    L{Map2D}.
+    @type row: C{int}
+    @ivar availLight: The total light available at this L{Tile}. Set by
+    L{addLight}, L{removeLight}, L{clearLight}.
+    @type availLight: C{(r,g,b)}-tuple
     """
     
     def __init__(self, map, (col, row), contents=None):
         """
-        Creates a C{Tile} to track the contents and display of position C{(col,
-        row)} in some C{Map2D}. If C{contents} is given, it should be a sequence
-        of C{MapObject}s that the C{Tile} will begin populated by.
+        Creates a L{Tile} to track the contents and display of position C{(col,
+        row)} in some L{Map2D}. If C{contents} is given, it should be a sequence
+        of L{MapObject}s that the L{Tile} will begin populated by.
 
-        The user should not normally have to worry about creating new C{Tile}
-        instances; the C{Tile}s of a C{Map2D} are all created by the
-        C{Map2D}'s constructor.
+        The user should not normally have to worry about creating new L{Tile}
+        instances; the L{Tile}s of a L{Map2D} are all created by the
+        L{Map2D}'s constructor.
         """
         self.contents = set()
         self.map = map
@@ -883,6 +248,10 @@ class Tile(shader.Shader):
                                               [repr(obj) for obj in self])
 
     def __getstate__(self):
+        """
+        Returns the state of a L{Tile} instance for pickling. Overlays and the
+        current frozen shader (if any) will not be preserved.
+        """
         # Returns the state of an instance for pickling
         state = super(Tile, self).__getstate__()
         state['overlays'] = {}
@@ -892,21 +261,30 @@ class Tile(shader.Shader):
         return state
 
     def __setstate__(self, state):
+        """
+        Sets the state of a new L{Tile} instance while unpickling.
+        """
         super(Tile, self).__setstate__(state)
-        self.__resetPasses()
+        self.resetPasses()
 
     def __iter__(self):
+        """
+        Iterates through the L{MapObject}s contained here, in arbitrary order.
+        """
         for obj in self.contents:
             yield obj
 
     def __contains__(self, obj):
+        """
+        Tests whether the L{Tile} contains a given L{MapObject}.
+        """
         return obj in self.contents
 
     #@parole.Property
     def getHighestLayer(self):
         """
-        Returns the layer of the highest-layer C{MapObject} contained by this
-        C{Tile}, or C{None} if the C{Tile} is empty.
+        Returns the layer of the highest-layer L{MapObject} contained by this
+        L{Tile}, or C{None} if the L{Tile} is empty.
         """
         try:
             return self._highestObject.layer
@@ -916,8 +294,8 @@ class Tile(shader.Shader):
     #@parole.Property
     def getHighestShader(self):
         """
-        Returns the C{shader} attribute of the highest-layer C{MapObject}
-        contained by this C{Tile}, or C{None} if the C{Tile} is empty.
+        Returns the C{shader} attribute of the highest-layer L{MapObject}
+        contained by this L{Tile}, or C{None} if the L{Tile} is empty.
         """
         try:
             return self._highestObject.shader
@@ -927,10 +305,16 @@ class Tile(shader.Shader):
     @parole.Property
     def highestObject():
         """
-        A C{Property} attribute that references the highest-layer C{MapObject}
-        contained by this C{Tile}. Setting this C{Property} causes the C{Tile}
-        to recompute how it is displayed. The set value must be a C{MapObject}
-        contained by the C{Tile}.
+        A L{Property} attribute that references the highest-layer L{MapObject}
+        contained by this L{Tile}. Setting this property causes the L{Tile}
+        to recompute how it is displayed. The set value must be a L{MapObject}
+        contained by the C{Tile}. If the L{MapObject}'s C{layer} attribute is
+        not actually the highest present in this L{Tile}, it will nonetheless be
+        displayed as though it were, though strange things may eventually result
+        from this inconsistency.
+
+        Whenever a L{MapObject} is added to or removed from a L{Tile}, this
+        property is automatically determined and set.
         """
         def fget(self):
             return self._highestObject
@@ -947,14 +331,30 @@ class Tile(shader.Shader):
             #    pass
             
             self._highestObject = val
-            self.__resetPasses()
+            self.resetPasses()
 
-    def __resetPasses(self):
+    def resetPasses(self):
+        """
+        Calculates how the L{Tile} should be displayed. The L{Tile} is a
+        L{Shader} instance, and this method is expected to arrange its passes
+        for display. The base implementation first clears all passes (via
+        L{Shader.clearPasses}, then, if the highest object has a null C{bg_rgb}
+        attribute, adds the C{bgShader} attribute (assumed to be a L{Shader}
+        instance) of the C{shader} attribute of the highest-layer object with
+        non-null C{bg_rgb}; in any case, it then adds the C{shader} attribute
+        (assumed to be a L{Shader} instance) of the highest object. Finally, any
+        overlays that have been applied to this L{Tile} (see L{addOverlay}) are
+        added.
+
+        @bug: Should get called whenever potential sources of backgrounds change
+        in the tile.
+        @bug: Does not respect the order in which overlays were added.
+        """
         # FIXME: this should also get called when potential sources of
         # backgrounds change in the tile
         self.clearPasses()
 
-        # FIXME: kind of hacky. if this object doesn't have a background
+        # kind of hacky. if this object doesn't have a background
         # color, find the next highest one that does, and add a colorfield
         # with that color, so that backgrounds show through higher objects
         # with no backgrounds.
@@ -980,6 +380,7 @@ class Tile(shader.Shader):
             pass
 
         # overlays
+        # FIXME: does not respect the order in which overlays were added
         for overlay, pos in self.overlays.iteritems():
             self.addPass(overlay, pos=pos)
 
@@ -1013,6 +414,7 @@ class Tile(shader.Shader):
 
         #super(Tile, self).remove(obj)
         self.contents.remove(obj)
+        obj.parentTile = None
         obj.pos = None
         # recompute highest layer/object
         highestObject = None
@@ -1032,19 +434,10 @@ class Tile(shader.Shader):
         for obj in list(self.contents):
             self.remove(obj)
         
-    #def update(self, parent=None):
-    #    """
-    #    Implements L{Shader.update}.
-    #    """
-    #    # avoids name conflict with set.update
-    #    if self.dirty:
-    #        shader.Shader.update(self, parent=parent)
-    #        self.__frozenShader = None
-
     def updateContents(self, otherSet):
         """
         Updates the contents of the L{Tile} to be the union of its contents with
-        those of the given C{set} of L{MapObject}s.
+        those of the given sequence of L{MapObject}s.
         """
         #set.update(self, otherSet)
         self.contents.update(otherSet)
@@ -1116,7 +509,10 @@ class Tile(shader.Shader):
 
     def addOverlay(self, sdr, pos=None):
         """
-        Adds a L{Shader} to be displayed as an overlay on this tile.
+        Adds a L{Shader} to be displayed as an overlay on this tile. It will
+        appear on top of the shaders of any contained L{MapObject}s, unless
+        L{resetPasses} has been overridden to do something else with overlays.
+        The order in which overlays are added is significant.
 
         @param sdr: The L{Shader} to add as an overlay.
         @param pos: The positional offset at which to display the overlay
@@ -1165,7 +561,7 @@ class Map2D(object):
     A L{Map2D} object can also be iterated over, which has the effect of
     iterating through all the L{Tile}s contained in it, in column-major order.
     """
-    def __init__(self, name, (cols, rows)):
+    def __init__(self, name, (cols, rows), tileType=Tile):
         """
         Create a L{Map2D} instance with the given name and dimenions.
 
@@ -1177,12 +573,22 @@ class Map2D(object):
         @param rows: The number of rows of L{Tile}s to be
         contained by this map.
         @type rows: C{int}
+        @param tileType: A C{callable} object to be used to construct the
+        L{Tile} objects in this map. It should accept two arguments -- this
+        L{Map2D} instance and a C{(col, row)} position tuple -- just like
+        L{Tile.__init__}, and it should return an instance of L{Tile} or a
+        subclass.
         """
         self.name = name
+
+        if cols < 1 or rows < 1:
+            raise ValueError('Map2D must have nonzero dimensions.')
         self.rows, self.cols = rows, cols
-        
-        self.tiles = [[Tile(self, (col,row)) for \
+
+        self.tiles = [[tileType(self, (col,row)) for \
                 col in range(cols)] for row in range(rows)]
+        if not isinstance(self.tiles[0][0], Tile):
+            raise TypeError('tileType should be a subclass of Tile.')
             
         self.ambientRGB = (0,0,0)
         self.ambientIntensity = 0
@@ -1443,52 +849,10 @@ class Map2D(object):
 
 #==============================================================================
 
-def bresenhamPoints((x0, y0), (x1, y1)):
-    """
-    Generator yielding the sequence of integer points on the line segment from
-    (x0,x1) to (y0,y1) as traced by the Bresenham algorithm.
-    """
-    # Basically lifted right from Wikipedia.
-    steep = abs(y1 - y0) > abs(x1 - x0)
-    if steep:
-        # swap(x0,y0)
-        t = x0; x0 = y0; y0 = t
-
-        #swap(x1,y1)
-        t = x1; x1 = y1; y1 = t
-    if x0 > x1:
-        # swap(x0,x1)
-        t = x0; x0 = x1; x1 = t
-
-        # swap(y0,y1)
-        t = y0; y0 = y1; y1 = t
-    deltax = x1 - x0
-    deltay = abs(y1 - y0)
-    error = deltax / 2
-    y = y0
-    ystep = (y0 < y1) and 1 or -1
-    for x in xrange(x0, x1+1):
-        if steep:
-            yield (y,x)
-        else:
-            yield (x,y)
-        error -= deltay
-        if error < 0:
-            y += ystep
-            error += deltax
-
-#==============================================================================
-
-def objectBlocksLOS(obj):
-    return obj.blocksLOS
-
-#==============================================================================
-
-# TODO: Eventually move this to something equivalent in sim?
 class LightSource(object):
     minIntensity = 0.03
 
-    def __init__(self, rgb, intensity, fallOff=1.0, blockTest=objectBlocksLOS):
+    def __init__(self, rgb, intensity, fallOff=1.0, blockTest=None):
         self.rgb = rgb
         self.intensity = intensity
         self.radius = 0
@@ -1496,7 +860,7 @@ class LightSource(object):
         self.fallOff = fallOff
         self.appliedTiles = {}
         self.pos = None
-        self.blockTest = blockTest
+        self.blockTest = blockTest or objectBlocksLOS
         self.calcRadius()
 
     def copy(self):
@@ -1581,6 +945,711 @@ class LightSource(object):
         # of the light source between calls?
         self.remove(tile.map)
         self.apply(tile.map, (tile.col, tile.row))
+
+#==============================================================================
+#{ Displaying 2D maps
+
+class MapFrame(shader.Frame):
+    """
+    A L{Frame} for displaying a view of a L{Map2D}. Provides a scrollable grid of
+    shaders for displaying the tiles of the map. The tile size must be known
+    in advance, when the C{MapFrame} is created, and must agree with the actual
+    size of the shaders offered by the tiles of the map.
+    """
+
+    defaultAnnoteLineRGB = (255, 255, 0)
+    defaultAnnoteReticleRGB = (255, 255, 0)
+    defaultAnnoteFont = None
+    defaultAnnoteTextRGB = (255, 255, 255)
+    defaultAnnoteTextBgRGB = None
+
+    def __init__(self, size, tileSize=None, map=None, borders=(None,)*8,
+            name=None):
+        """
+        Creates a new, empty MapFrame. Use the setMap() method to then display
+        a map in this Frame.
+        """
+        super(MapFrame, self).__init__(borders, size=size, name=name)
+        # private attributes
+        self.__grid = None
+        self.__map = None
+        self.__tileSize = tileSize or AsciiTile.characterSize()
+        self.__scroll = None
+        self.__lastScrollOffset = None
+        self.fovObj = None
+        self.fovRad = None
+        self.__dirtyFovQuads = None
+        self.visibleTiles = set()
+        self.__rememberSeenTiles = False
+        self.rememberedTiles = set()
+        self.__annotationsAt = {} # Tile -> (Annotation, Rect)
+
+        # public attributes
+        self.selectedTile = None
+        self.reticle = ReticleOverlayShader(self.__tileSize)
+
+        if map:
+            self.setMap(map)
+
+    def __getstate__(self):
+        parole.warn('MapFrame is being pickled!')
+        return super(MapFrame, self).__getstate__()
+
+    @parole.Property
+    def tileSize():
+        """
+        The expected size in pixels of the Tile shaders of the Map2D instance
+        displayed in this MapFrame. Setting this automatically invokes
+        resetGrid().
+        """
+        def fget(self):
+            return self.__tileSize
+        def fset(self, val):
+            self.__tileSize = val
+            self.resetGrid()
+
+    def setMap(self, map):
+        """
+        Set the Map2D instance to be displayed in this MapFrame. Automatically
+        invokes self.resetGrid(), dirtying the Frame so that it is ready to be
+        rendered on the next update. Pass None to stop displaying anything.
+        """
+        if self.__map and self.__grid:
+            for tile in self.__map:
+                if tile in self.__grid.passes:
+                    self.__grid.remPass(tile)
+                self.__grid[tile.col, tile.row] = None
+        if not map:
+            self.bindVisibilityToFOV(None, None)
+        self.__map = map
+        self.fovObj = None
+        self.fovRad = None
+        self.__dirtyFovQuads = None
+        self.resetGrid()
+
+    def getMap(self):
+        """
+        Returns the Map2D instance that this MapFrame is currently displaying a
+        view of, or None if no map has been set.
+        """
+        return self.__map
+
+    def resetGrid(self):
+        """
+        Rebuilds the shader grid used to display the currently set Map2D
+        instance. This is done automatically when setting the map, and should
+        only need to be called manually if you've somehow modified what the
+        MapFrame is rendering, and you want to reset it. Has no effect if the
+        current map is not set.
+        """
+        if self.__scroll in self.passes:
+            if self.__grid:
+                self.__scroll.remPass(self.__grid)
+            self.remPass(self.__scroll)
+
+        if self.__grid:
+            self.__grid.clearPasses()
+
+        if not self.__map:
+            return
+
+        self.__grid = shader.ShaderGrid((self.__map.cols, self.__map.rows),
+                self.tileSize)
+        self.__scroll = shader.ScrollView(self.size)
+        self.__lastScrollOffset = None
+        
+        for x in range(self.__map.cols):
+            for y in range(self.__map.rows):
+                tile = self.__map[x,y]
+                tile.size = self.tileSize
+                tile.touch()
+                self.__grid[x,y] = tile
+
+        self.__scroll.addPass(self.__grid, pos=(0,0))
+        self.addPass(self.__scroll, pos=(0,0))
+        self.__annotationsAt = {}
+
+    def scrollPixels(self, dx, dy):
+        """
+        Translates the view of the map by the given displacement in pixels.
+        """
+        if self.__scroll:
+            self.__scroll.scrollPixels(dx, dy)
+
+    def scrollTiles(self, dx, dy):
+        """
+        Translates the view of the map by the given displacement in tiles.
+        """
+        if self.__scroll:
+            self.__scroll.scrollPixels(dx*self.__tileSize[0],
+                                     dy*self.__tileSize[1])
+
+    def pixelPosToTile(self, posOrX, y=None):
+        """
+        Returns the (col, row) location of the tile containing the map pixel
+        at the given position. Does no bounds checking to ensure that the
+        given point is actually within the bounds of the map.
+        """
+        x, y = type(posOrX) is tuple and posOrX or (x,y)
+        return x / self.__tileSize[0], y / self.__tileSize[1]
+
+    def tilePosToPixel(self, posOrCol, row=None):
+        """
+        Returns the map pixel corresponding to the upper left corner of the
+        tile at the given location.
+        """
+        col, row = type(posOrCol) is tuple and posOrCol or (posOrCol, row)
+        tw, th = self.tileSize
+        return tw*col, th*row
+
+    def setViewOriginToTile(self, posOrCol, row=None):
+        """
+        Set the upper left corner of the view to be the upper left corner of
+        the given tile location.
+        """
+        col, row = type(posOrCol) is tuple and posOrCol or (posOrCol, row)
+        self.__scroll.offset = self.tilePosToPixel(col,row)
+
+    def centerAtTile(self, posOrCol, row=None):
+        """
+        Center the view at the given tile position.
+        """
+        col, row = type(posOrCol) is tuple and posOrCol or (posOrCol, row)
+        cx, cy = self.tilePosToPixel(col, row)
+        tw, th = self.tileSize
+        cx, cy = cx + tw/2, cy + th/2
+        vx, vy = (cx-self.width/2, cy-self.height/2)
+        if vx + self.width > self.__grid.width:
+            vx = self.__grid.width - self.width
+        if vy + self.height > self.__grid.height:
+            vy = self.__grid.height - self.height
+        self.__scroll.offset = (vx, vy)
+
+    def viewRectPixels(self):
+        """
+        Returns the rectangle of map pixels currently contained in the Frame's
+        view. 
+        """
+        return self.__scroll.visibleRect()
+
+    def viewRectTiles(self):
+        """
+        Returns the (ceiling of the) rectangle of map tiles currently
+        contained in the Frame's view.  
+        TODO: viewRectTiles()
+        """
+        pass
+
+    def bindVisibilityToFOV(self, obj, radius, remember=True,
+            inFOVCallback=None, leaveFOVCallback=None, fovCondition=None):
+        """
+        Causes the L{MapFrame} to only display L{Tile}s of the map that are within
+        the field of view of the given L{MapObject}, which must be located
+        somewhere in the currently displayed map. 
+
+        @param obj: The L{MapObject} to whose field of view to bind the
+                   display. Pass C{None} to deactivate any current binding.
+        @param radius: The radius to use in calculating the object's field of view.
+        @param remember: Whether to continue displaying tiles that were at one
+        time in C{obj}'s field of view but are no longer. TODO: a way to
+        display remembered tiles differently than currently visible ones.
+        @param inFOVCallback: An optional C{callable} object to be invoked
+        whenever the field-of-view is updated. It should accept a C{set} of
+        the C{Tile}s found to be visible.
+        @param leaveFOVCallback: An optional C{callable} object to be invoked
+        whenever the field-of-view is updated. It should accept a C{set} of
+        the previously visible C{Tile}s that have left the field-of-view.
+        @param leaveFOVCallback: An optional C{callable} object that must return
+        C{True} on a L{Tile} object in order for that location to be considered
+        visible, even if it is otherwise within FOV.
+        """
+        self.__map.unmonitorNearby(self.fovObj)
+
+        self.fovObj = obj
+        self.fovRad = (obj and radius) or None
+        self.__dirtyFovQuads = set()
+        self.visibleTiles.clear()
+        self.rememberedTiles.clear()
+        self.__rememberSeenTiles = remember
+        if obj:
+            self.__disableAll()
+            self.__map.monitorNearby(obj, radius, self.__touchFOVQuadrant,
+                    self.__blocksLOS)
+            self.__touchFOVQuadrant(obj, [(obj, obj.pos)])
+        else:
+            self.__enableAll()
+        self.inFOVCallback = inFOVCallback
+        self.leaveFOVCallback = leaveFOVCallback
+        self.fovCondition = fovCondition
+
+    def __disableAll(self):
+        if self.__map:
+            for x in xrange(self.__map.cols):
+                for y in xrange(self.__map.rows):
+                    #self.__grid.disable(x, y)
+                    self.__grid[x,y] = self.__map[x,y].overlayShader()
+
+    def __enableAll(self):
+        if self.__map:
+            for x in xrange(self.__map.cols):
+                for y in xrange(self.__map.rows):
+                    #self.__grid.enable(x, y)
+                    self.__grid[x,y] = self.__map[x,y]
+
+    def __blocksLOS(self, obj):
+        #parole.debug('checking if blocks los')
+        return obj.blocksLOS or obj is self.fovObj
+
+    def __touchFOVQuadrant(self, monObj, objsPos):
+        assert(monObj is self.fovObj)
+        for (obj, pos) in objsPos:
+            if monObj is obj:
+                # the fov object has moved
+                self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
+            else:
+                self.__dirtyFovQuads.add(self.__map.quadrant(pos, monObj.pos))
+
+        #parole.debug('MapFrame.__touchQuadrant: dirty quads = %s',
+        #        self.__dirtyFovQuads)
+
+    def update(self, *args, **kwargs):
+        if self.__dirtyFovQuads:
+            t = parole.time()
+            self.__updateFOV()
+            parole.debug('update fov time = %sms', parole.time()-t)
+        if self.__scroll and self.__annotationsAt and \
+                self.__scroll.offset != self.__lastScrollOffset:
+            self.__updateAnnotations()
+        if self.__scroll:
+            self.__lastScrollOffset = self.__scroll.offset
+        super(MapFrame, self).update(*args, **kwargs)
+
+    def __updateFOV(self):
+        #parole.debug('dirty fov quads: %s', self.__dirtyFovQuads)
+        newVisibleTiles = set()
+        def fovVisit(x, y):
+            tile = self.__map[x,y]
+            if self.fovCondition and not self.fovCondition(tile):
+                return
+            if (x,y) not in self.visibleTiles:
+                self.__grid[x,y] = tile
+                if self.__rememberSeenTiles:
+                    self.rememberedTiles.add((x,y))
+            newVisibleTiles.add((x,y))
+
+        self.__map.fieldOfView(self.fovObj.pos, self.fovRad, fovVisit,
+                quadrants=self.__dirtyFovQuads)
+
+        formerlyVisibleTiles = self.visibleTiles - newVisibleTiles
+        if self.leaveFOVCallback:
+            self.leaveFOVCallback(formerlyVisibleTiles)
+
+        for (x,y) in formerlyVisibleTiles:
+            if self.__rememberSeenTiles:
+                self.__map[x,y].clearFrozenShader()
+                self.__grid[x,y] = self.__map[x,y].frozenShader()
+            else:
+                # but what about overlays?
+                #self.__grid.disable(x, y)
+                self.__grid[x,y] = self.__map[x,y].overlayShader()
+
+        self.visibleTiles = newVisibleTiles
+        self.__dirtyFovQuads.clear()
+
+        if self.inFOVCallback:
+            self.inFOVCallback(self.visibleTiles)
+
+    def inFOV(self, tile):
+        """
+        If the view is currently bound to a field of view (see
+        L{bindVisibilityToFOV}, returns C{True} if the given tile is currently
+        visible. If the view is not bound, returns C{True} always.
+        """
+        if self.fovObj:
+            return (tile.col, tile.row) in self.visibleTiles
+        return True
+
+    def remembered(self, tile):
+        """
+        If the view is currently bound to a field of view (see
+        L{bindVisibilityToFOV}, returns C{True} if the given tile is
+        "remembered". If a tile is in FOV (L{inFOV}) it is also remembered.
+        If the view is not bound, returns C{True} always.
+        """
+        if self.fovObj:
+            return self.__rememberSeenTiles and \
+                   (tile.col, tile.row) in self.rememberedTiles
+        return True
+
+    def selectTile(self, posOrX, y=None):
+        """
+        A convenience function that applies self.reticle as an overlay at the
+        given position. Only one tile may be selected at a time in this way, and
+        subsequent calls to C{selectTile} will automatically remove the overlay
+        from the previously selected tile. To select no tile call
+        C{selectTile(None)}.
+        """
+        #parole.debug('select: %s,%s', posOrX, y)
+        if self.selectedTile:
+            self.selectedTile.removeOverlay(self.reticle)
+        if posOrX is not None:
+            self.selectedTile = self.__map[type(posOrX) is tuple and posOrX\
+                    or (posOrX,y)]
+            self.selectedTile.addOverlay(self.reticle)
+        else:
+            self.selectedTile = None
+        #parole.debug('selectedTile = %s', self.selectedTile)
+
+    def annotate(self, tile, shaderOrText, ann=None, lineRGB=None,
+            reticleRGB=None, textFont=None, textRGB=None, textBgRGBA=None,
+            textWidth=150):
+        """
+        Annotates the given L{Tile} of this L{MapFrame}'s current L{Map2D}.
+        There are three ways to use this method: 
+            1. By supplying an L{Annotation} object (C{ann}) to use directly.
+               Pass C{None} for C{shaderOrText}.
+            2. By giving a L{Shader} object (C{shaderOrText}) from which to
+               construct an L{Annotation}. Pass C{None} for C{ann} (its
+               default).
+            3. By simply giving some text (C{shaderOrText}) from which to
+               construct a basic text-displaying L{Annotation}. Pass C{None} for
+               C{ann} (its default).
+
+        If method 2 or 3 is being used, the remaining keyword arguments
+        (C{lineRGB, reticleRGB, textFont, textWidth}) may be specified to
+        control the appearance of the L{Annotation} that is built. If method 1
+        is used, the L{Annotation} object (C{ann}) overrides any values for
+        these arguments.
+
+        @param tile:         The L{Tile} to annotate. Must be contained in this
+                             L{MapFrame}'s current L{Map2D}.
+        @type tile:          L{Tile}
+        @param shaderOrText: The shader or text from which to construct an
+                             L{Annotation} if one is not being provided through
+                             C{ann}.
+        @type shaderOrText:  L{Shader} or C{str} or C{None}.
+        @param ann:          The L{Annotation} object to place, if one is not
+                             being constructed through the other arguments.
+        @type ann:           L{Annotation} or C{None}.
+        @param lineRGB:      The color of the line linking the annotated L{Tile}
+                             to it's L{Annotation}, if being constructed from a
+                             shader or text.
+        @type lineRGB:       C{(red,green,blue)}-tuple or C{None}.
+        @param reticleRGB:   The color of the reticle overlay place on the
+                             annotated L{Tile} if the annotation is being
+                             constructed from a shader or text.
+        @type reticleRGB:    C{(red,green,blue)}-tuple or C{None}.
+        @param textFont:     The font to render the text in if the L{Annotation}
+                             is being created from text (method 3).
+        @type textFont:      C{pygame.Font}.
+        @param textWidth:    Text wrap-width if the L{Annotation} is being
+                             created from text (method 3).
+        @type textRGB:       C{(red,green,blue)}-tuple or C{None}.
+        @param textRGB:      Text color if the L{Annotation} is being created
+                             from text (method 3). Default is white.
+        @type textBgRGBA:    C{(red,green,blue,alpha)}-tuple or C{None}.
+        @param textBgRGBA:   Color of background field behind text if the
+                             L{Annotation} is begin created from text (method
+                             3). Default is C{(0,0,0,0)}.
+        @return:             The L{Annotation} object placed, whether it was
+                             constructed by methods 1 or 2, or specified as in
+                             method 1.
+        """
+        # tile may be a Tile instance or a coordinate tuple -- figure which
+        # Tile we're referring to
+        if type(tile) is tuple and len(tile)==2:
+            tile = self.getMap()[tile]
+        if not isinstance(tile, Tile) or tile not in self.getMap():
+            raise TypeError('tile must be a Tile instance in my Map2D')
+
+        textRGB = textRGB or self.defaultAnnoteTextRGB
+        textBgRGBA = textBgRGBA or self.defaultAnnoteTextBgRGBA
+
+        # Generally, shaderOrText can be any Shader, but for convenience, if
+        # it is a string, we create a TextBlock containing that string in a
+        # default font.
+        if isinstance(shaderOrText, parole.shader.Shader):
+            sdr = shaderOrText
+        elif type(shaderOrText) is str:
+            txt = shader.TextBlockPass(textFont or self.defaultAnnoteFont,
+                    textRGB, #bg_rgb = textBgRGBA,
+                    text=shaderOrText, wrap='word', wrap_width=textWidth)
+            txt.update()
+            if textBgRGBA:
+                sz = (txt.size[0] + 4, txt.size[1] + 4)
+                sdr = shader.Shader('textAnnote', size=sz,
+                        passes=[shader.ColorField(textBgRGBA, sz)])
+                sdr.addPass(txt, pos=(2,2))
+            else:
+                sdr = txt
+            sdr.update()
+        elif not ann:
+            # if the user didn't specify an Annotation, he has to give us some
+            # text to make one with.
+            raise TypeError('shaderOrText must be a Shader instance or '
+                            'a string.')
+
+        # Create the Annotation object, which will track information about how
+        # we're displaying this annotation
+        ann = ann or Annotation(tile, sdr, lineRGB or
+                self.defaultAnnoteLineRGB, reticleRGB or
+                self.defaultAnnoteReticleRGB)
+
+        # Prepare the annotations list for this tile if necessary
+        if tile not in self.__annotationsAt:
+            self.__annotationsAt[tile] = []
+
+        # Now figure out where to display the annotation...
+        visibleRect = self.__scroll.visibleRect()
+        tileRect = self.__grid.rectOf((tile.col, tile.row))
+        if visibleRect.contains(tileRect):
+            # tile is on screen; find a free cardinal direction around the
+            # tile to place the annotation at
+            for rect in self.__annoteRects(tile, sdr.size):
+                rectFree = True
+                #for annote in self.__annotationsAt[tile]:
+                for annote in sum(self.__annotationsAt.values(), []):
+                    annoteRect = annote.prefRect
+                    if rect.colliderect(annoteRect):
+                        rectFree = False
+                        break
+                if rectFree and visibleRect.contains(rect):
+                    self.__placeAnnotation(tile, ann, rect)
+                    ann.prefRect = rect
+                    #parole.debug('ann: %r', ann)
+                    return ann
+            #raise "Too many annotations on %r" % tile
+
+        # tile is off screen, or no free cardinal direction was on screen.
+        # TODO: if it's the latter, make sure we don't place the annote on top
+        # of an existing one
+        rect = Rect((0,0), ann.size)
+        rect.center = tileRect.center
+        bufferRect = Rect(rect)
+        bufferRect.size = (rect.w + 2*tileRect.w, rect.h + 2*tileRect.h)
+        bufferRect.center = rect.center
+        bufferRect.clamp_ip(visibleRect)
+        rect.center = bufferRect.center
+        self.__placeAnnotation(tile, ann, rect)
+        ann.prefRect = rect
+        #parole.debug('ann: %r', ann)
+        return ann
+
+    def removeAnnotation(self, annotation):
+        """
+        Remove a previously added (via L{annotate}) L{Annotation}.
+
+        @param annotation: The L{Annotation} to remove. This should be the value
+                           returned by L{annotate}.
+        @type annotation: L{Annotation}.
+        """
+        # stop drawing it
+        self.__annotationsAt[annotation.tile].remove(annotation)
+        if not self.__annotationsAt[annotation.tile]:
+            del self.__annotationsAt[annotation.tile]
+        self.remPass(annotation)
+        if annotation.line and annotation.line in self.passes:
+            self.remPass(annotation.line)
+        if annotation.reticle and annotation.reticle in \
+                annotation.tile.overlays:
+            annotation.tile.removeOverlay(annotation.reticle)
+        # make sure the reticle disappears from unseen but remembered tiles
+        tile = annotation.tile
+        if not self.inFOV(tile):
+            if self.__rememberSeenTiles and self.remembered(tile):
+                tile.clearFrozenShader()
+                self.__grid[tile.col,tile.row] = tile.frozenShader()
+            else:
+                self.__grid[tile.col,tile.row] = tile.overlayShader()
+
+    def __placeAnnotation(self, tile, ann, rect):
+        # Prepare the annotations list for this tile if necessary
+        if tile not in self.__annotationsAt:
+            self.__annotationsAt[tile] = []
+
+        # Since we add the annotation to our own passes (rather than to the
+        # scroll or grid), we need to account for the scroll offset
+        ox, oy = self.__scroll.offset
+        annRect = rect.move(-ox, -oy)
+
+        # place the annotation
+        self.addPass(ann, pos=annRect.topleft)
+        self.__annotationsAt[tile].append(ann)
+
+        # add a reticle to the tile
+        reticle = ReticleOverlayShader(tile.size, rgb=ann.reticleRGB)
+        tile.addOverlay(reticle)
+        ann.reticle = reticle
+
+        # handle out of view tiles
+        if not self.inFOV(tile):
+            if self.__rememberSeenTiles and self.remembered(tile):
+                # make sure the reticle appears on unseen but remembered tiles
+                tile.clearFrozenShader()
+                self.__grid[tile.col,tile.row] = tile.frozenShader()
+            else:
+                self.__grid[tile.col,tile.row] = tile.overlayShader()
+
+        # and a line linking the annotation to the tile 
+        tileRect = self.__grid.rectOf((tile.col, tile.row)).move(-ox, -oy)
+        # annote above tile
+        if annRect.bottom < tileRect.top:
+            lineTileY = tileRect.top
+            lineAnnY = annRect.bottom
+            linePosY = annRect.bottom
+        # annote below tile
+        elif annRect.top > tileRect.bottom:
+            lineTileY = tileRect.bottom
+            lineAnnY = annRect.top
+            linePosY = tileRect.bottom
+        else:
+            lineTileY = tileRect.centery
+            lineAnnY = annRect.centery
+            linePosY = annRect.centery
+
+        # annote left of tile
+        if annRect.right < tileRect.left:
+            lineTileX = tileRect.left
+            lineAnnX = annRect.right
+            linePosX = annRect.right
+        # annote right of tile
+        elif annRect.left > tileRect.right:
+            lineTileX = tileRect.right
+            lineAnnX = annRect.left
+            linePosX = tileRect.right
+        else:
+            lineTileX = tileRect.centerx
+            lineAnnX = annRect.centerx
+            linePosX = annRect.centerx
+
+        #if not (lineAnnY == annRect.centery and lineAnnX == annRect.centerx):
+        line = parole.shader.Line((lineAnnX, lineAnnY), (lineTileX, lineTileY),
+                ann.lineRGB)
+
+        #line = parole.shader.Line(annRect.center, tileRect.center,
+        #        self.annoteLineRGB)
+        ann.line = line
+        self.addPass(line, line.defaultPos)
+        #parole.info('line size: %s', line.size)
+        #else:
+        #    ann.line = None
+
+    def __updateAnnotations(self):
+        parole.debug('annotations: %r', self.__annotationsAt)
+        visibleRect = self.__scroll.visibleRect()
+        for tile, anns in self.__annotationsAt.iteritems():
+            for ann in anns:
+                self.removeAnnotation(ann)
+                if visibleRect.contains(ann.prefRect):
+                    self.__placeAnnotation(tile, ann, ann.prefRect)
+                else:
+                    self.annotate(tile, ann.shader, ann)
+
+    def __annoteRects(self, tile, shaderSize):
+        dist = 10.0
+        diagComp = int(math.sqrt((dist**2)/2))
+        dist = int(dist)
+        tileRect = self.__grid.rectOf((tile.col, tile.row))
+        annoteRect = Rect((0,0), shaderSize)
+
+        annoteRect.bottomright = tileRect.topleft
+        yield annoteRect.move(-diagComp, -diagComp)
+
+        annoteRect.midbottom = tileRect.midtop
+        yield annoteRect.move(0, -diagComp)
+
+        annoteRect.bottomleft = tileRect.topright
+        yield annoteRect.move(diagComp, -diagComp)
+
+        annoteRect.midleft = tileRect.midright
+        yield annoteRect.move(diagComp, 0)
+
+        annoteRect.topleft = tileRect.bottomright
+        yield annoteRect.move(diagComp, diagComp)
+
+        annoteRect.midtop = tileRect.midbottom
+        yield annoteRect.move(0, diagComp)
+
+        annoteRect.topright = tileRect.bottomleft
+        yield annoteRect.move(-diagComp, diagComp)
+
+        annoteRect.midright = tileRect.midleft
+        yield annoteRect.move(-diagComp, 0)
+
+#==============================================================================
+
+class ReticleOverlayShader(shader.Shader):
+    """
+    A shader that draws a 1-pixel wide border around its rectangle area, used by
+    default by L{MapFrame.selectTile} as the overlay placed on the selected
+    tile. 
+
+    @param size: The rectangular extents of the box to draw.
+    @type size: C{(width,height)}-tuple
+    @param rgb: The color in which to draw the box/border.
+    @type rgb: C{(r,g,b)}-tuple
+    """
+    def __init__(self, size, rgb=colors['Gold']):
+        super(ReticleOverlayShader, self).__init__("ReticleOverlay", size=size)
+        # left vertical bevel
+        vbl = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
+        vbl.size = (vbl.size[0], size[1])
+        self.addPass(vbl, pos=(0,0))
+        # right vertical bevel
+        vbr = shader.VerticalBevel(rgb, rgb, rgb, 1, 0, 0)
+        vbr.size = (vbr.size[0], size[1])
+        self.addPass(vbr, pos=(size[0]-vbr.size[0],0))
+        # top horizontal bevel
+        hbt = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
+        hbt.size = (size[0], hbt.size[1])
+        self.addPass(hbt, pos=(0,0))
+        # bottom horizontal bevel
+        hbb = shader.HorizontalBevel(rgb, rgb, rgb, 1, 0, 0)
+        hbb.size = (size[0], hbb.size[1])
+        self.addPass(hbb, pos=(0,size[1]-hbb.size[1]))
+
+#==============================================================================
+
+class Annotation(shader.Shader):
+    """
+    An C{Annotation} is a message (or any kind of) window/shader linked to a
+    particular L{Tile} of a L{Map2D} that can be displayed in an associated
+    L{MapFrame}. The C{Annotation} is display placing an overlay reticle on the
+    annotated L{Tile}, and drawing a line from the reticle to the
+    C{Annotation}'s shader, which is automatically positioned near the annotated
+    L{Tile}. Annotated tiles not currently visible in the L{MapFrame} have their
+    shaders placed at the nearest edge of the screen, with a line extending in
+    the direction of the L{Tile}.
+    
+    @param tile: The L{Tile} to annotate.
+    @type tile: L{Tile}.
+    @param shader: The L{Shader} with which to annotate the tile.
+    @type shader: L{Shader}.
+    @param lineRGB: The color of the line linking the tile to the annotation
+                    shader. Pass C{None} for the default color
+                    (L{MapFrame.defaultAnnoteLineRGB}).
+    @type lineRGB: C{(red,green,blue)}-tuple or C{None}.
+    @param reticleRGB: The color of the reticle overlay to apply to the
+                       annotated tile. Pass C{None} for the default color
+                       (L{MapFrame.defaultAnnoteReticleRGB}).
+    @type reticleRGB: C{(red,green,blue)}-tuple or C{None}.
+    """
+
+    def __init__(self, tile, shader, lineRGB=(255,255,255),
+            reticleRGB=(255,255,255)):
+        super(Annotation, self).__init__('Annotation', shader.size)
+        self.prefRect = None
+        self.line = None
+        self.tile = tile
+        self.shader = shader
+        self.reticle = None
+        self.lineRGB = lineRGB
+        self.reticleRGB = reticleRGB
+        self.addPass(shader)
+
+    def __repr__(self):
+        return "Annotation(%r, %r, prefRect=%r, line=%r)" % (self.tile, self.shader,
+                self.prefRect, self.line)
 
 #==============================================================================
 
@@ -1691,10 +1760,12 @@ class AsciiTile(shader.Pass):
             self.touch()
 
 #==============================================================================
+#{ Generic map content generators
 
 class Generator(object):
     """
-    Generates content for maps. Various generators can be applied one after
+    A base clase for objects that generate content for, or apply changes to, a
+    portion of a L{Map2D}. Various generators can be applied one after
     another to different, possibly overlapping regions of a map. 
     """
     def __init__(self, name, clearFirst=False):
@@ -1706,8 +1777,8 @@ class Generator(object):
 
     def apply(self, map, rect=None):
         """
-        Applies this generator to the given region of the given map, or to the
-        whole thing if unspecified.
+        Subclasses override this to apply the generator to the given region
+        of the given map, or to the whole thing if unspecified.
         """
         pass
 
@@ -1792,7 +1863,8 @@ class PerlinGenerator(Generator):
 
 class TemplateGenerator(Generator):
     # TODO: Area effects
-    def __init__(self, name, template, legend, clearFirst=False, extend="clip"):
+    def __init__(self, name, template, legend, backgroundGen=None,
+            clearFirst=False, extend="clip"):
         super(TemplateGenerator, self).__init__(name, clearFirst)
         # TODO: extend = "scale", "tile"
         self.extend = extend
@@ -1816,6 +1888,7 @@ class TemplateGenerator(Generator):
         #        raise ValueError('Template rows must all have equal length.')
 
         self.legend = legend
+        self.backgroundGen = backgroundGen
 
     def __repr__(self):
         return "TemplateGenerator(%s, '...', ...)" % (repr(self.name),)
@@ -1823,6 +1896,9 @@ class TemplateGenerator(Generator):
     def apply(self, map, rect=None, parentRect=None):
         rect = (rect or (parentRect or map.rect())).clip(parentRect or map.rect())
         #super(TemplateGenerator, self).apply(map, rect)
+
+        if self.backgroundGen:
+            self.backgroundGen.apply(map, rect)
 
         y = rect.y
         for templateRow in self.templateRows:
@@ -1937,7 +2013,8 @@ class RoomsAndCorridorsGenerator(Generator):
         for roomType, nRooms in self.roomBill:
             for n in xrange(nRooms):
                 self.layRoom(map, rect, roomType, rooms)
-        parole.debug('Laid %d of %d rooms.', len(rooms), totalRequestedRooms)
+        parole.debug('Laid %d of %d requested rooms.', len(rooms),
+                totalRequestedRooms)
 
         # Connect the rooms
         self.connectRooms(map, rooms, self.diggerClass,
@@ -1963,8 +2040,8 @@ class RoomsAndCorridorsGenerator(Generator):
                 continue
     
             rooms.append(room)
-    
             room.apply(map)
+            return
     
     def __corners(self, rect):
         return (rect.topleft,
@@ -2007,7 +2084,7 @@ class RoomsAndCorridorsGenerator(Generator):
             otherRooms = [r for r in rooms if r is not room1]
             otherRects = [r.rect for r in rooms if r is not room1]
             for inflation in xrange(minDist, maxDist+1):
-                parole.debug('inflation %s', inflation)
+                #parole.debug('inflation %s', inflation)
                 inflRoom1 = room1.rect.inflate(inflation, inflation)
                 for otherIdx in inflRoom1.collidelistall(otherRects):
                     room2 = otherRooms[otherIdx]
@@ -2097,4 +2174,46 @@ class RoomsAndCorridorsGenerator(Generator):
                 movingX = False
             elif x != endPos[0] and y == endPos[1]:
                 movingX = True
+
+#==============================================================================
+#{ Utility functions
+
+def bresenhamPoints((x0, y0), (x1, y1)):
+    """
+    Generator yielding the sequence of integer points on the line segment from
+    C{(x0,y0)} to C{(x1,y1)} as traced by the Bresenham algorithm.
+    """
+    # Basically lifted right from Wikipedia.
+    steep = abs(y1 - y0) > abs(x1 - x0)
+    if steep:
+        # swap(x0,y0)
+        t = x0; x0 = y0; y0 = t
+
+        #swap(x1,y1)
+        t = x1; x1 = y1; y1 = t
+    if x0 > x1:
+        # swap(x0,x1)
+        t = x0; x0 = x1; x1 = t
+
+        # swap(y0,y1)
+        t = y0; y0 = y1; y1 = t
+    deltax = x1 - x0
+    deltay = abs(y1 - y0)
+    error = deltax / 2
+    y = y0
+    ystep = (y0 < y1) and 1 or -1
+    for x in xrange(x0, x1+1):
+        if steep:
+            yield (y,x)
+        else:
+            yield (x,y)
+        error -= deltay
+        if error < 0:
+            y += ystep
+            error += deltax
+
+#==============================================================================
+
+def objectBlocksLOS(obj):
+    return obj.blocksLOS
 

@@ -555,7 +555,7 @@ def getModule(name, addToSysModules=True):
 
     @return: C{module}. The module's name will be derived from that of the script
     resource, with directories corresponding to packages. For example,
-    "scripts/util.py" results in a module called "scripts.util".
+    C{"scripts/util.py"} results in a module called C{"scripts.util"}.
     """
     # Return any cached copy of the desired object
     if name in __resTable:

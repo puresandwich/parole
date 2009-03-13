@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import parole
+import pkg_resources
+
 def main():
     print 'hello'
 

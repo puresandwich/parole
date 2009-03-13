@@ -450,3 +450,14 @@ def handleWalk(command):
 
     map.update()
 
+#========================================
+
+def adjacentTiles(tile):
+    map = tile.map
+    for i in (-1, 0, 1):
+        for j in (-1, 0. 1):
+            if (i,j) == (0,0):
+                continue
+            if i < 0 or i >= map.cols or j < 0 or j >= map.rows:
+                continue
+            yield map[(tile.pos[0]+i, tile.pos[1]+j)]
