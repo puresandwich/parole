@@ -30,7 +30,6 @@ from display import clampRGB
 from pygame.sprite import *
 from pygame.locals import *
 
-
 def __init():
     """
     Initializes the shader module. Automatically called during engine startup -
@@ -238,6 +237,8 @@ class Shader(Sprite):
         def fset(self, val):
             if val != self.__size:
                 self.__size = val
+                if val:
+                    self.rect = pygame.Rect((0,0), val)
                 self.touch()
 
     @parole.Property

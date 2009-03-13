@@ -28,17 +28,18 @@ TODO.
 Modules
 =======
 
-C{parole.Base}
+L{parole.base}
 --------------
 TODO.
 
 @author: Max Bane
-@contact: max.bane@gmail.com
+@contact: C{max.bane@gmail.com}
 @newfield web: Website, Websites
 @web: Project home: U{http://parole.googlecode.com}
 @web: Online API Docs: U{http://maxbane.com/parole_api} [TODO]
 @copyright: Copyright 2006-2009 Max Bane.
 
+@license:
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
