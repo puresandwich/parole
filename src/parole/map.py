@@ -2179,6 +2179,19 @@ class RoomsAndCorridorsGenerator(Generator):
 #                        diggerClass())
 #                connectedPairs.append(closestPair)
 #                connectedPairs.append(tuple(reversed(closestPair)))
+                # add singleton rooms to the components list
+                #singletons = []
+                #for r in rooms:
+                #    inAPair = False
+                #    for p in connectedPairs:
+                #        if r in p:
+                #            inAPair = True
+                #            break
+                #    if not inAPair:
+                #        singletons.append(r)
+                #for r in singletons:
+                #    rooms.remove(r)
+
 
 
     def __connectAdjacent(self, map, room1, room2):
