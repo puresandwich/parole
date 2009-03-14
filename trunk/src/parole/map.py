@@ -22,7 +22,7 @@ TODO: Map library docs.
 import parole, shader, resource, pygame
 from pygame import Rect
 from colornames import colors
-import gc, random, math, random
+import gc, random, math, random, pprint
 import fov, perlin
 from shader import clampRGB
 
@@ -1212,6 +1212,12 @@ class MapFrame(shader.Frame):
         #parole.debug('MapFrame.__touchQuadrant: dirty quads = %s',
         #        self.__dirtyFovQuads)
 
+    def touchFOV(self):
+        """
+        Marks all FOV quadrants as dirty.
+        """
+        self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
+
     def update(self, *args, **kwargs):
         if self.__dirtyFovQuads:
             t = parole.time()
@@ -1990,10 +1996,11 @@ class CellularAutomataGenerator(Generator):
 
 #==============================================================================
 
+# FIXME: forceFullConnectivity
 class RoomsAndCorridorsGenerator(Generator):
     def __init__(self, name, rockAreaGenerator, roomBill, diggerClass,
             floorFunc, connectAdjacent=True, minConnectDist=1,
-            maxConnectDist=14, clearFirst=True):
+            maxConnectDist=14, forceFullConnectivity=True, clearFirst=True):
         super(RoomsAndCorridorsGenerator, self).__init__(name, clearFirst)
         self.roomBill = roomBill
         self.rockAreaGenerator = rockAreaGenerator
@@ -2002,6 +2009,7 @@ class RoomsAndCorridorsGenerator(Generator):
         self.connectAdjacent = connectAdjacent
         self.minConnectDist = minConnectDist
         self.maxConnectDist = maxConnectDist
+        self.forceFullConnectivity = forceFullConnectivity
 
     def apply(self, map, rect=None):
         rect = (rect or map.rect()).clip(map.rect())
@@ -2097,6 +2105,82 @@ class RoomsAndCorridorsGenerator(Generator):
                     connectedPairs.append(pair1)
                     connectedPairs.append(pair2)
 
+#        if self.forceFullConnectivity:
+#            # first find each connected component
+#            components = []
+#            
+#            def visit(pair, currentComponent):
+#                r1, r2 = pair
+#                currentComponent.append((r1,r2))
+#                currentComponent.append((r2,r1))
+#                for otherPair in connectedPairs:
+#                    if r1 in otherPair and r2 in otherPair:
+#                        continue
+#                    if (r1 in otherPair or r2 in otherPair) \
+#                            and (otherPair not in currentComponent) \
+#                            and (tuple(reversed(otherPair)) not in \
+#                            currentComponent):
+#                        visit(otherPair, currentComponent)
+#
+#            for cpair in connectedPairs:
+#                # if cpair is not in a known connected component, visit it
+#                # and add the resulting component to our list
+#                inKnownComponent = False
+#                for comp in components:
+#                    if cpair in comp:
+#                        inKnownComponent = True
+#                        break
+#                if not inKnownComponent:
+#                    currentComponent = []
+#                    visit(cpair, currentComponent)
+#                    components.append(list(currentComponent))
+#
+#            # add singleton rooms to the components list
+#            for r in rooms:
+#                inAPair = False
+#                for p in connectedPairs:
+#                    if r in p:
+#                        inAPair = True
+#                        break
+#                if not inAPair:
+#                    components.append([(r,r)])
+#
+#            parole.debug('*** JOINING %d CONNECTED COMPONENTS ***',
+#                    len(components))
+#            parole.debug('Components:\n%s', pprint.pformat(components))
+#
+#            # find the largest component
+#            targetComp = components[0]
+#            for comp in components:
+#                if len(comp) > len(targetComp):
+#                    targetComp = comp
+#
+#            # for each other component, find a room closest to a room in the
+#            # largest component, and connect them
+#            for comp in components:
+#                if comp is targetComp:
+#                    continue
+#                closestPair = (targetComp[0][0], comp[0][0])
+#                closestDist = map.dist(closestPair[0].rect.center,
+#                                       closestPair[1].rect.center)
+#                for pairInComp in comp:
+#                    for pairInTarget in targetComp:
+#                        for i,j in [(0,0),(0,1),(1,0),(1,1)]:
+#                            d = map.dist(pairInComp[i].rect.center,
+#                                         pairInTarget[j].rect.center)
+#                            if d < closestDist:
+#                                closestPair = (pairInComp[i], pairInTarget[j])
+#                                closestDist = d
+#
+#                # connect them
+#                parole.debug('Connecting across components: %r -> %r',
+#                        closestPair[0], closestPair[1])
+#                self.connectDistant(map, closestPair[0], closestPair[1], rooms,
+#                        diggerClass())
+#                connectedPairs.append(closestPair)
+#                connectedPairs.append(tuple(reversed(closestPair)))
+
+
     def __connectAdjacent(self, map, room1, room2):
         perim = list(self.__perimeter(room1.rect))
         random.shuffle(perim)
@@ -2140,7 +2224,9 @@ class RoomsAndCorridorsGenerator(Generator):
         p1 = room1.diggableOut()
         p2 = room2.diggableIn()
     
-        while 1:
+        ntries = 100
+        while ntries:
+            ntries -= 1
             startPos = random.choice(p1)
             endPos = random.choice(p2)
             dPos = (self.__sign(endPos[0]-startPos[0]),
@@ -2150,9 +2236,16 @@ class RoomsAndCorridorsGenerator(Generator):
                 continue
             else:
                 break
+
+        if not ntries:
+            return
     
         x, y = startPos
-        digger.digTile(map, map[x,y], room1, room2, allRooms)
+        try:
+            digger.digTile(map, map[x,y], room1, room2, allRooms)
+        except IndexError:
+            return
+
         dx, dy = dPos
         movingX = random.choice((True, False))
         while (x,y) != endPos:
@@ -2167,8 +2260,12 @@ class RoomsAndCorridorsGenerator(Generator):
                 movingX = not movingX
                 continue
     
-            if not digger.digTile(map, map[nx,ny], room1, room2, allRooms):
-                break
+            try:
+                if not digger.digTile(map, map[nx,ny], room1, room2, allRooms):
+                    break
+            except IndexError:
+                return
+
             x, y = nx, ny
             if x == endPos[0] and y != endPos[1]:
                 movingX = False
