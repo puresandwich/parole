@@ -216,6 +216,7 @@ class Tile(shader.Shader):
         self._highestObject = None
         self.last_highestObject = None
         self.overlays = {}
+        self.__overlayShader = parole.shader.Shader('overlayShader', self.size)
         
         if contents is not None:
             for obj in contents:
@@ -230,6 +231,12 @@ class Tile(shader.Shader):
 #        """
 #        # We need to hash as a shader, not as a set
 #        return shader.Shader.__hash__(self)
+
+    #def update(self, *args, **kwargs):
+    #    if self.__overlayShader.size != self.size:
+    #        self.__overlayShader.size = self.size
+
+    #    super(Tile, self).update(*args, **kwargs)
         
     def __str__(self):
         """
@@ -381,8 +388,9 @@ class Tile(shader.Shader):
 
         # overlays
         # FIXME: does not respect the order in which overlays were added
-        for overlay, pos in self.overlays.iteritems():
-            self.addPass(overlay, pos=pos)
+        #for overlay, pos in self.overlays.iteritems():
+        #    self.addPass(overlay, pos=pos)
+        self.addPass(self.__overlayShader)
 
         
     def add(self, obj):
@@ -520,31 +528,35 @@ class Tile(shader.Shader):
         @type pos:  C{(x,y)}-tuple.
         """
         self.overlays[sdr] = pos
-        self.addPass(sdr, pos=pos)
+        #self.addPass(sdr, pos=pos)
+        self.__overlayShader.addPass(sdr, pos=pos)
 
     def removeOverlay(self, sdr):
         """
         Removes a previously added overlay L{Shader}.
         """
         del self.overlays[sdr]
-        self.remPass(sdr)
+        #self.remPass(sdr)
+        self.__overlayShader.remPass(sdr)
 
     def clearOverlays(self):
         """
         Removes all previously added overlay L{Shader}s.
         """
-        self.remPass(self.overlays)
+        #self.remPass(self.overlays)
         self.overlays.clear()
+        self.__overlayShader.clearPasses()
 
     def overlayShader(self):
         """
         Returns a L{Shader} containing all of the overlays on this L{Tile}.
         """
-        s = parole.shader.Shader('overlayShader', self.size)
-        for p in self.passes:
-            if p in self.overlays:
-                s.addPass(p, pos=self.overlays[p])
-        return s
+        return self.__overlayShader
+        #s = parole.shader.Shader('overlayShader', self.size)
+        #for p in self.passes:
+        #    if p in self.overlays:
+        #        s.addPass(p, pos=self.overlays[p])
+        #return s
         
 #==============================================================================
 
@@ -1062,6 +1074,7 @@ class MapFrame(shader.Frame):
             for y in range(self.__map.rows):
                 tile = self.__map[x,y]
                 tile.size = self.tileSize
+                tile.overlayShader().size = self.tileSize
                 tile.touch()
                 self.__grid[x,y] = tile
 
@@ -1399,7 +1412,8 @@ class MapFrame(shader.Frame):
         # we're displaying this annotation
         ann = ann or Annotation(tile, sdr, lineRGB or
                 self.defaultAnnoteLineRGB, reticleRGB or
-                self.defaultAnnoteReticleRGB)
+                self.defaultAnnoteReticleRGB, 
+                type(shaderOrText) is str and shaderOrText)
 
         # Prepare the annotations list for this tile if necessary
         if tile not in self.__annotationsAt:
@@ -1639,10 +1653,11 @@ class Annotation(shader.Shader):
                        annotated tile. Pass C{None} for the default color
                        (L{MapFrame.defaultAnnoteReticleRGB}).
     @type reticleRGB: C{(red,green,blue)}-tuple or C{None}.
+    @param text: Optional text to associate with the annotation.
     """
 
     def __init__(self, tile, shader, lineRGB=(255,255,255),
-            reticleRGB=(255,255,255)):
+            reticleRGB=(255,255,255), text=None):
         super(Annotation, self).__init__('Annotation', shader.size)
         self.prefRect = None
         self.line = None
@@ -1652,6 +1667,7 @@ class Annotation(shader.Shader):
         self.lineRGB = lineRGB
         self.reticleRGB = reticleRGB
         self.addPass(shader)
+        self.text = text
 
     def __repr__(self):
         return "Annotation(%r, %r, prefRect=%r, line=%r)" % (self.tile, self.shader,
