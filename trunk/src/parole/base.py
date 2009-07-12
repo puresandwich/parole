@@ -44,7 +44,7 @@ The version number of this installation of Parole, expressed as a tuple of the
 C{(major, minor, revision)} integers.
 """
 
-versionStr = '%s.%s.%s%s' % (version[0], version[1], version[2],
+versionStr = '%s.%s.%s-%s' % (version[0], version[1], version[2],
         developmentVersion and 'dev' or '')
 """
 A human readable version string derived from L{version} and
