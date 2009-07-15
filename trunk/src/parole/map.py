@@ -879,8 +879,8 @@ class LightSource(object):
         return LightSource(self.rgb, self.intensity, self.fallOff)
 
     def calcRadius(self):
-        self.radius = int(math.sqrt(self.intensity / (self.fallOff * \
-            self.minIntensity)))
+        self.radius = int(math.sqrt(abs(self.intensity / (self.fallOff * \
+            self.minIntensity))))
         #parole.debug('LightSource: intensity = %, fallOff = %s, radius = %s',
         #        self.intensity, self.fallOff, self.radius)
 
