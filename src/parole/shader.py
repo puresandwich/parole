@@ -442,8 +442,8 @@ class Shader(Sprite):
             parent = list(self.parents)[0]
 
         if parent:
-            return (parent.width/2 - self.width/2,
-                    parent.height/2 - self.height/2)
+            return (int(round(parent.width/2.)) - int(round(self.width/2.)),
+                    int(round(parent.height/2.)) - int(round(self.height/2.)))
         else:
             scr = display.getSurface()
             return (scr.get_width()/2 - self.width/2,
