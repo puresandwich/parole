@@ -412,6 +412,7 @@ class Tile(shader.Shader):
 
         self.map.onAdd(self, obj)
         #parole.debug('Added %r to %s', obj, self)
+        self.resetPasses()
         return self
         
     def remove(self, obj):
@@ -433,6 +434,7 @@ class Tile(shader.Shader):
         self.highestObject = highestObject
 
         #parole.debug('Removed %r from %s', obj, self)
+        self.resetPasses()
         return self
 
     def clear(self):
