@@ -338,7 +338,7 @@ class Tile(shader.Shader):
             #    pass
             
             self._highestObject = val
-            self.resetPasses()
+            #self.resetPasses()
 
     def resetPasses(self):
         """
@@ -378,10 +378,14 @@ class Tile(shader.Shader):
                     highestLayer = obj.layer
                     highestBgObj = obj
             if highestBgRGB:
+                #parole.debug('Tile %r: adding background %r from %r', (self.col,
+                #    self.row), highestBgObj.shader.bgShader, highestBgObj)
                 self.addPass(highestBgObj.shader.bgShader)
 
         # add the top object's shader to our passes
         try:
+            #parole.debug('Tile %r: adding shader from highest obj %r', (self.col,
+            #    self.row), self._highestObject)
             self.addPass(self._highestObject.shader)
         except AttributeError:
             pass
@@ -429,7 +433,7 @@ class Tile(shader.Shader):
         highestObject = None
         self.highestObject = None
         for x in self:
-            if x.layer > self.getHighestLayer():
+            if (not highestObject) or x.layer > highestObject.layer:
                 highestObject = x
         self.highestObject = highestObject
 
