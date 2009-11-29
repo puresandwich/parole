@@ -71,36 +71,58 @@ __printFrameTime = False
 #{ Utilities
 
 # Engine log output functions, one for each log level.
-debug = logging.debug
-info = logging.info
-warn = logging.warn
-error = logging.error
-# unfortunately these don't show up in epydoc this way
+_debug = logging.debug
+_info = logging.info
+_warn = logging.warn
+_error = logging.error
 
-#def debug(*args, **kwargs):
-#    """
-#    Logs a message at level C{DEBUG}. Arguments work exactly as they do for the
-#    standard library's C{logging.debug}.
-#    """
-#    logging.debug(*args, **kwargs)
-#def info(*args, **kwargs):
-#    """
-#    Logs a message at level C{INFO}. Arguments work exactly as they do for the
-#    standard library's C{logging.info}.
-#    """
-#    logging.info(*args, **kwargs)
-#def warn(*args, **kwargs):
-#    """
-#    Logs a message at level C{WARN}. Arguments work exactly as they do for the
-#    standard library's C{logging.warn}.
-#    """
-#    logging.warn(*args, **kwargs)
-#def error(*args, **kwargs):
-#    """
-#    Logs a message at level C{ERROR}. Arguments work exactly as they do for the
-#    standard library's C{logging.error}.
-#    """
-#    logging.error(*args, **kwargs)
+_extraDict = {}
+
+def debug(*args, **kwargs):
+    """
+    Logs a message at level C{DEBUG}. Arguments work exactly as they do for the
+    standard library's C{logging.debug}.
+    """
+    _debug(extra=_extra(),*args,**kwargs)
+
+def info(*args, **kwargs):
+    """
+    Logs a message at level C{INFO}. Arguments work exactly as they do for the
+    standard library's C{logging.info}.
+    """
+    _info(extra=_extra(),*args,**kwargs)
+
+def warn(*args, **kwargs):
+    """
+    Logs a message at level C{WARN}. Arguments work exactly as they do for the
+    standard library's C{logging.warn}.
+    """
+    _warn(extra=_extra(),*args,**kwargs)
+
+def error(*args, **kwargs):
+    """
+    Logs a message at level C{ERROR}. Arguments work exactly as they do for the
+    standard library's C{logging.error}.
+    """
+    _error(extra=_extra(),*args,**kwargs)
+
+def setLogger(logger):
+    """
+    Sets the C{Logger} instance that C{parole.debug}, C{parole.info}, etc.
+    should send output to.
+    """
+    global _debug, _info, _warn, _error
+    _debug = logger.debug
+    _info = logger.info
+    _warn = logger.warn
+    _error = logger.error
+
+def setDynamicLoggingExtras(extra):
+    global _extraDict
+    _extraDict = extra
+
+def _extra():
+    return dict([(k,v()) for k,v in _extraDict.iteritems()])
 
 #==============================================================================
 
@@ -602,6 +624,12 @@ def popAnimation():
     pygame.event.post(pygame.event.Event(GeneralUpdateEvent, {}))
     parole.debug('Popping animation; continuousUpdates = %s',
             __continuousUpdates)
+
+def numAnimations():
+    """
+    Returns the number of animations on the stack.
+    """
+    return __continuousUpdates
 
 #==============================================================================
 
