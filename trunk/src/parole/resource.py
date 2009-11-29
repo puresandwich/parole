@@ -232,7 +232,7 @@ def getResource(name, binary=False):
         return __resTable[name]
     
     # we need to load it
-    logging.info('Loading resource: "%s"', name)
+    parole.info('Loading resource: "%s"', name)
     bytes = None
 
     # go through all packages until we find one with the resource
@@ -266,7 +266,7 @@ def clearResource(name):
     @param name: The path + filename of the resource to clear from the cache.
     @type name: C{str}
     """
-    logging.info('Clearing resource: %s', name)
+    parole.info('Clearing resource: %s', name)
     if name in __resTable: 
         del __resTable[name]
     else:
@@ -278,7 +278,7 @@ def clearAll():
     """
     Clears all loaded resources from the cache.
     """
-    logging.info('Clearing all resources')
+    parole.info('Clearing all resources')
     __resTable.clear()
     
 #==============================================================================

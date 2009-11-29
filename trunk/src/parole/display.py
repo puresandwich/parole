@@ -202,7 +202,7 @@ def __setMode():
     else:
         __workSurf = None
         
-    logging.info('New mode: %s %s %sx%sx%s', hw and 'HW' or 'SW',
+    parole.info('New mode: %s %s %sx%sx%s', hw and 'HW' or 'SW',
         fs and 'Fullscreen' or 'Window', resolution[0], resolution[1], depth)
     
 

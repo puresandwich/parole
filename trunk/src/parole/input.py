@@ -32,10 +32,10 @@ def __onConfigChange(conf):
             pygame.key.set_repeat(r, r)
         else:
             pygame.key.set_repeat()
-        logging.info('Keyboard repeat delay: %sms', r)
+        parole.info('Keyboard repeat delay: %sms', r)
 
-        logging.info('Use shiftmap: %s', conf.input.useShiftmap)
-        logging.info('Shiftmap: %s', conf.input.shiftmap.name)
+        parole.info('Use shiftmap: %s', conf.input.useShiftmap)
+        parole.info('Shiftmap: %s', conf.input.shiftmap.name)
         
 def __init():
     """
@@ -110,7 +110,7 @@ def handleKeyDown(event):
     # append a nicely stringified representation of this keypress to the list
     result = keyRepr(key, mod)
     __keypresses.append(result)
-    logging.debug('Key down: %s. Queue: %s', result, __keypresses)
+    parole.debug('Key down: %s. Queue: %s', result, __keypresses)
 
     # notify any listeners of a keydown event
     for listener in __downUpListeners:
@@ -140,7 +140,7 @@ def handleKeyUp(event):
     
     result = keyRepr(key, mod)
 
-    logging.debug('Key up: %s', result)
+    parole.debug('Key up: %s', result)
 
     # notify any listeners of a keyup event
     for listener in __downUpListeners:
@@ -193,7 +193,7 @@ def clearKeyPresses():
     since the last time getKeyPresses() was called.
     """
     global __keypresses
-    logging.debug('clearKeyPresses()')
+    parole.debug('clearKeyPresses()')
     __keypresses = []
 
 #==============================================================================
