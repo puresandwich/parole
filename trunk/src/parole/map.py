@@ -1405,9 +1405,7 @@ class MapFrame(shader.Frame):
             txt = shader.TextBlockPass(textFont or self.defaultAnnoteFont,
                     textRGB, #bg_rgb = textBgRGBA,
                     text=shaderOrText, wrap='word', wrap_width=textWidth)
-            parole.debug('Updating txt...')
             txt.update()
-            parole.debug('Done!')
             if textBgRGBA:
                 sz = (txt.size[0] + 4, txt.size[1] + 4)
                 sdr = shader.Shader('textAnnote', size=sz,
@@ -1466,7 +1464,7 @@ class MapFrame(shader.Frame):
         rect.center = bufferRect.center
         self.__placeAnnotation(tile, ann, rect)
         ann.prefRect = rect
-        parole.debug('ann: %r', ann)
+        #parole.debug('ann: %r', ann)
         return ann
 
     def removeAnnotation(self, annotation):
