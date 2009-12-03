@@ -333,7 +333,7 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
     # Try to start psyco
     try:
         import psyco
-        psyco.full()
+        #psyco.full()
         info('Psyco initialized.')
     except:
         info('Psyco unavailable.')

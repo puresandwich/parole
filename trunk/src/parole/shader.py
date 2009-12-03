@@ -1411,39 +1411,53 @@ class TextBlockPass(Pass):
                 return self.font.render(text, self.antialias, self.fore_rgb)
 
         def fontSize(self, text):
-            return self.font.size(text)
+            sz = self.font.size(text)
+            #parole.debug('renderState.fontSize(): %s', sz)
+            return sz
 
         def fontLineSize(self):
             return self.font.get_linesize()
 
-    def __breakSpan(self, span, xpos, renderState):
+    def __breakSpan(self, span, xpos, renderState, wrapWidth):
         if self.wrap is None or self.wrap == 'no' or not self.wrap_width:
             return [span]
 
         wrapped_LF = []
         #wrapWidth = self.size[0]
-        wrapWidth = self.wrap_width
-        #span = span.strip()
+        #wrapWidth = self.wrap_width
+        span = span.strip()
+        #parole.debug('wrapWidth = %d', wrapWidth)
 
-        #print 'Wrapping span: %s' % span
+        #parole.debug('Wrapping span: %r', span)
         spanWidth = renderState.fontSize(span)[0]
         if xpos + spanWidth <= wrapWidth:
+            #parole.debug('1')
             wrapped_LF.append(span)
         else:
+            #parole.debug('2')
             # we need to find the rightmost point at which to split the span
             units = (self.wrap == 'word' and span.split() or list(span))
+            #parole.debug('units = %s', units)
             subspan = ''
             sep = ''
             for u in units:
+                #parole.debug('subspan = %r', subspan)
+                #parole.debug('f')
                 if xpos + renderState.fontSize(subspan + sep + u)[0] <= wrapWidth:
+                    #parole.debug('f1')
                     subspan += sep + u
                 else:
+                    #parole.debug('f2')
                     #print 'Breaking subspan: %s' % subspan
                     wrapped_LF += [subspan, NEWLINE]
                     span = span[len(subspan):].strip()
                     break
                 if self.wrap == 'word':
+                    #parole.debug('f3')
                     sep = ' '
+            #parole.debug('g')
+            #parole.debug('subspan = %r, span = %r', subspan, span)
+            assert(span.strip() != subspan)
             wrapped_LF.append(span)
 
         return wrapped_LF
@@ -1463,6 +1477,8 @@ class TextBlockPass(Pass):
 
         i = 0
         while i < len(text_LF):
+            #parole.debug('renderSpans: i = %d, len(text_LF) = %d', i,
+            #        len(text_LF))
             span = text_LF[i]
             i += 1 # i now points to the next span
             # Handle positional markups
@@ -1524,10 +1540,10 @@ class TextBlockPass(Pass):
             # Handle an actual span of text
             spanSize = renderState.fontSize(span)
 
-            if spanSize[0] > wrapWidth:
+            if xpos + spanSize[0] > wrapWidth:
                 # wrap it
                 #parole.debug('WRAP')
-                newSpanLF = self.__breakSpan(span, xpos, renderState)
+                newSpanLF = self.__breakSpan(span, xpos, renderState, wrapWidth)
                 for s in reversed(newSpanLF):
                     text_LF.insert(i, s)
             else:
