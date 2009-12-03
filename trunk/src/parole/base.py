@@ -631,6 +631,13 @@ def numAnimations():
     """
     return __continuousUpdates
 
+def clearAnimations():
+    """
+    Removes all animations from the stack.
+    """
+    global __continuousUpdates
+    __continuousUpdates = 0
+
 #==============================================================================
 
 uiEventHandlers = []
