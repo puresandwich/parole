@@ -197,6 +197,9 @@ class Tile(shader.Shader):
     @ivar availLight: The total light available at this L{Tile}. Set by
     L{addLight}, L{removeLight}, L{clearLight}.
     @type availLight: C{(r,g,b)}-tuple
+    @ivar lightIntensity: The light intensity at this L{Tile}. Set by
+    L{addLight}, L{removeLight}, L{clearLight}.
+    @type lightIntensity: C{float}
     """
     
     def __init__(self, map, (col, row), contents=None):
@@ -223,6 +226,7 @@ class Tile(shader.Shader):
                 self.add(obj)
 
         self.availLight = (0,0,0)
+        self.lightIntensity = 0.0
         self.__frozenShader = None
                 
 #    def __hash__(self):
@@ -482,6 +486,7 @@ class Tile(shader.Shader):
                            aG + int(intensity*g),
                            aB + int(intensity*b))
         self.map.tilesWithDirtyLight.add(self)
+        self.lightIntensity += intensity
 
     def removeLight(self, rgb, intensity):
         """
@@ -494,6 +499,7 @@ class Tile(shader.Shader):
         Remove all available light at this L{Tile}.
         """
         self.availLight = (0,0,0)
+        self.lightIntensity = self.map.ambientIntensity
         self.map.tilesWithDirtyLight.add(self)
 
     def applyLight(self, obj=None):
