@@ -1437,6 +1437,13 @@ class TextBlockPass(Pass):
             #parole.debug('2')
             # we need to find the rightmost point at which to split the span
             units = (self.wrap == 'word' and span.split() or list(span))
+            if len(units) == 1:
+                # the span is only one word, so we have to force
+                # character-wrapping
+                units = list(span)
+                wrapType = 'char'
+            else:
+                wrapType = self.wrap
             #parole.debug('units = %s', units)
             subspan = ''
             sep = ''
@@ -1448,11 +1455,11 @@ class TextBlockPass(Pass):
                     subspan += sep + u
                 else:
                     #parole.debug('f2')
-                    #print 'Breaking subspan: %s' % subspan
+                    print 'Breaking subspan: %s' % subspan
                     wrapped_LF += [subspan, NEWLINE]
                     span = span[len(subspan):].strip()
                     break
-                if self.wrap == 'word':
+                if wrapType == 'word':
                     #parole.debug('f3')
                     sep = ' '
             #parole.debug('g')
