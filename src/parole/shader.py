@@ -1455,16 +1455,18 @@ class TextBlockPass(Pass):
                     subspan += sep + u
                 else:
                     #parole.debug('f2')
-                    print 'Breaking subspan: %s' % subspan
+                    #print 'Breaking subspan: %s' % subspan
                     wrapped_LF += [subspan, NEWLINE]
-                    span = span[len(subspan):].strip()
+                    span = span[len(subspan):]#.strip()
+                    while span[0] == ' ':
+                        span = span[1:]
                     break
                 if wrapType == 'word':
                     #parole.debug('f3')
                     sep = ' '
             #parole.debug('g')
             #parole.debug('subspan = %r, span = %r', subspan, span)
-            assert(span.strip() != subspan)
+            #assert(span.strip() != subspan)
             wrapped_LF.append(span)
 
         return wrapped_LF

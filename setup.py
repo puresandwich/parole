@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+f = open('hello.txt', 'w')
+f.write('hello world!')
+f.close()
 import ez_setup
 ez_setup.use_setuptools()
 
