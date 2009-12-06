@@ -1227,11 +1227,14 @@ class MapFrame(shader.Frame):
 
     def __touchFOVQuadrant(self, monObj, objsPos):
         assert(monObj is self.fovObj)
+        self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
+        return
+        # FIXME
         for (obj, pos) in objsPos:
             if monObj is obj:
                 # the fov object has moved
                 self.__dirtyFovQuads = set(['ne', 'se', 'sw', 'nw'])
-            else:
+            else:# monObj.pos and pos:
                 self.__dirtyFovQuads.add(self.__map.quadrant(pos, monObj.pos))
 
         #parole.debug('MapFrame.__touchQuadrant: dirty quads = %s',
