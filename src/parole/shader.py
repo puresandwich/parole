@@ -1426,10 +1426,16 @@ class TextBlockPass(Pass):
         #wrapWidth = self.size[0]
         #wrapWidth = self.wrap_width
         span = span.strip()
-        #parole.debug('wrapWidth = %d', wrapWidth)
 
         parole.debug('Wrapping span: %r', span)
+        parole.debug('wrapWidth = %d', wrapWidth)
         spanWidth = renderState.fontSize(span)[0]
+        parole.debug('spanWidth = %d', spanWidth)
+        parole.debug('xpos = %d', xpos)
+
+        if xpos > wrapWidth:
+            return []
+
         if xpos + spanWidth <= wrapWidth:
             parole.debug('1')
             wrapped_LF.append(span)
