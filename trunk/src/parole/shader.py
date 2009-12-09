@@ -1427,20 +1427,20 @@ class TextBlockPass(Pass):
         #wrapWidth = self.wrap_width
         span = span.strip()
 
-        parole.debug('Wrapping span: %r', span)
-        parole.debug('wrapWidth = %d', wrapWidth)
         spanWidth = renderState.fontSize(span)[0]
-        parole.debug('spanWidth = %d', spanWidth)
-        parole.debug('xpos = %d', xpos)
+        #parole.debug('Wrapping span: %r', span)
+        #parole.debug('wrapWidth = %d', wrapWidth)
+        #parole.debug('spanWidth = %d', spanWidth)
+        #parole.debug('xpos = %d', xpos)
 
         if xpos > wrapWidth:
             return []
 
         if xpos + spanWidth <= wrapWidth:
-            parole.debug('1')
+            #parole.debug('1')
             wrapped_LF.append(span)
         else:
-            parole.debug('2')
+            #parole.debug('2')
             # we need to find the rightmost point at which to split the span
             units = (self.wrap == 'word' and span.split() or list(span))
             if len(units) == 1:
@@ -1450,7 +1450,7 @@ class TextBlockPass(Pass):
                 wrapType = 'char'
             else:
                 wrapType = self.wrap
-            parole.debug('units = %s', units)
+            #parole.debug('units = %s', units)
             subspan = ''
             sep = ''
 
@@ -1469,13 +1469,13 @@ class TextBlockPass(Pass):
                     units.insert(idx, char)
 
             for idx, u in enumerate(units):
-                parole.debug('subspan = %r', subspan)
-                parole.debug('f')
+                #parole.debug('subspan = %r', subspan)
+                #parole.debug('f')
                 if xpos + renderState.fontSize(subspan + sep + u)[0] <= wrapWidth:
-                    parole.debug('f1')
+                    #parole.debug('f1')
                     subspan += sep + u
                 else:
-                    parole.debug('f2')
+                    #parole.debug('f2')
                     #print 'Breaking subspan: %s' % subspan
                     wrapped_LF += [subspan, NEWLINE]
                     span = span[len(subspan):]#.strip()
@@ -1483,15 +1483,15 @@ class TextBlockPass(Pass):
                         span = span[1:]
                     break
                 if wrapType == 'word':
-                    parole.debug('f3')
+                    #parole.debug('f3')
                     if idx in noSpaceIdxs:
-                        parole.debug('f3a')
+                        #parole.debug('f3a')
                         sep = ''
                     else:
-                        parole.debug('f3b')
+                        #parole.debug('f3b')
                         sep = ' '
-            parole.debug('g')
-            parole.debug('subspan = %r, span = %r', subspan, span)
+            #parole.debug('g')
+            #parole.debug('subspan = %r, span = %r', subspan, span)
             #assert(span.strip() != subspan)
             wrapped_LF.append(span)
 
