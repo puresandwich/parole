@@ -748,6 +748,10 @@ class Map2D(object):
 
     def fieldOfView(self, pos, radius, visitFunc, isBlocked=None,
             quadrants=None):
+        if not pos:
+            parole.error('Requested FOV of null position!')
+            return
+
         time = parole.time()
         def defaultIsBlocked(x, y):
             for obj in self[x,y]:
@@ -815,7 +819,7 @@ class Map2D(object):
         C{(col,row)}-tuples. C{callback} should be a callable object accepting a
         C{Tile} as an argument, and should return C{True} if tracing should
         continue past this C{Tile}, or C{False} if the trace should stop.
-        C{traceLOS} returns the last C{Tile} object reached by the trace.
+        C{traceRay} returns the last C{Tile} object reached by the trace.
         """
         if isinstance(p1, Tile):
             t1 = p1
