@@ -33,16 +33,18 @@ def __onConfigChange(conf):
     Applies any changes to the engine configuration that are relevant to the
     Map module (any configuration property under conf.map).
     """
-    AsciiTile.antialias = bool(conf.map.antialias)
-    AsciiTile.font = resource.getFont(conf.map.font,
-                                      conf.map.fontSize)
-    AsciiTile.makeSquare = bool(conf.map.makeSquare)
     parole.info('Ascii map font: %s', conf.map.font)
     parole.info('Ascii map font size: %s', conf.map.fontSize)
     parole.info('Ascii map antialiasing: %s', conf.map.antialias)
     parole.info('Ascii map font makeSquare: %s', conf.map.makeSquare)
+    AsciiTile.antialias = bool(conf.map.antialias)
+    AsciiTile.makeSquare = bool(conf.map.makeSquare)
+    AsciiTile.font = resource.getFont(conf.map.font,
+                                      conf.map.fontSize)
     if not AsciiTile.font:
         parole.error('Unable to load specified map font.')
+    AsciiTile.font.set_bold(bool(conf.map.fontBold))
+
     parole.info('Map annotation font: %s', conf.map.annotationFont)
     parole.info('Map annotation font size: %s', conf.map.annotationFontSize)
     MapFrame.defaultAnnoteFont = resource.getFont(conf.map.annotationFont, 
@@ -1956,9 +1958,10 @@ class TemplateGenerator(Generator):
                     pass
                 elif templateChar in self.legend:
                     generator = self.legend[templateChar]
-                    if self.clearFirst:
-                        map[x,y].clear()
-                    generator.apply(map, pygame.Rect((x, y), (1, 1)))
+                    if generator:
+                        if self.clearFirst:
+                            map[x,y].clear()
+                        generator.apply(map, pygame.Rect((x, y), (1, 1)))
                 else:
                     parole.warn("Unknown template character %s.",
                         repr(templateChar))

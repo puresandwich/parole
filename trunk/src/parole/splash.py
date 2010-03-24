@@ -49,7 +49,7 @@ class SplashShader(shader.Shader):
 
         # Copyright
         gray = (108,108,108)
-        copyright = "Copyright 2009 by Max Bane"
+        copyright = "Engine copyright 2009 by Max Bane"
         copyrightSize = font.size(copyright)
         copyrightPass = shader.TextBlockPass(font, gray,
                 text=copyright)
