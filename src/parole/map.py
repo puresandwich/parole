@@ -25,6 +25,7 @@ from colornames import colors
 import gc, random, math, random, pprint
 import fov, perlin
 from shader import clampRGB
+import sys
 
 #==============================================================================
 
@@ -574,6 +575,11 @@ class Tile(shader.Shader):
         
 #==============================================================================
 
+class NoAStarPathError(Exception):
+    pass
+
+#==============================================================================
+
 class Map2D(object):
     """
     A two-dimensional array of L{Tile} objects, along with varioius utility
@@ -661,15 +667,64 @@ class Map2D(object):
         """
         return (y0 <= y1 and 'n' or 's') + (x0 >= x1 and 'e' or 'w')
 
-    def iterTiles(self):
+    def neighborsOf(self, (x,y)):
+        """
+        Returns an iterator over the nine points that neighbor the given (x,y)
+        coordinate. Not guaranteed to actually lie within the bounds of this
+        Map2D.
+        """
+        yield x+1, y
+        yield x-1, y
+        yield x, y+1
+        yield x, y-1
+        yield x+1, y+1
+        yield x+1, y-1
+        yield x-1, y+1
+        yield x-1, y-1
+
+    def cardinalNeighborsOf(self, (x,y)):
+        """
+        Returns an iterator over the four points that are cardinal neighbors to
+        the given (x,y) coordinate. Not guaranteed to actually lie within the
+        bounds of this Map2D.
+        """
+        yield x+1, y
+        yield x-1, y
+        yield x, y+1
+        yield x, y-1
+
+    def pointIsInBounds(self, point):
+        """
+        Returns True iff the given (x,y) point is a valid Tile coordinate in
+        this Map2D instance; False otherwise.
+        """
+        x, y = point
+        if x < 0 or x >= self.cols:
+            return False
+        if y < 0 or y >= self.rows:
+            return False
+        return True
+
+    def iterTiles(self, rect=None):
         """
         Returns a generator yielding a sequence of all the L{Tile} objects in
         this map, in column-major order. If you just need to iterate through the
         tiles, C{for tile in mapObject} is equivalent to C{for tile in
-        mapObject.iterTiles()}.
+        mapObject.iterTiles()}. Optional C{rect} specifies a rectangle to get
+        tiles from.
         """
-        for x in xrange(self.cols):
-            for y in xrange(self.rows):
+        if rect:
+            rect = rect.clip(self.rect())
+        else:
+            rect = self.rect()
+
+        x0 = rect.x
+        xlim = rect.x + rect.width
+        y0 = rect.y
+        ylim = rect.y + rect.height
+
+        for x in xrange(x0, xlim):
+            for y in xrange(y0, ylim):
                 yield self[x,y]
 
     def getRow(self, y):
@@ -876,6 +931,82 @@ class Map2D(object):
         else:
             destT = self[p2]
         return self.traceLOS(p1, p2, None) is destT
+
+    def defaultAStarHeuristicDistance(self, pos1, pos2):
+        return self.dist(pos1, pos2) 
+
+    def defaultAStarNeighborDistance(self, pos1, pos2):
+        if self[pos2].hasMoveBlocker():
+            return sys.maxint
+        return self.dist(pos1, pos2) 
+
+    def __reconstructPath(self, current_node, came_from):
+        if current_node in came_from:
+            p = self.__reconstructPath(came_from[current_node], came_from)
+            return p + [current_node]
+        else:
+            return [current_node]
+
+    def getAStarPath(self, start, goal, heurDist=None, neighborDist=None,
+            neighborFunc=None):
+        # default parameters
+        heurDist = heurDist or self.defaultAStarHeuristicDistance
+        neighborDist = neighborDist or self.defaultAStarNeighborDistance
+        neighborFunc = neighborFunc or self.neighborsOf
+
+        # The set of nodes already evaluated.     
+        closedset = set() 
+        # The set of tentative nodes to be evaluated.
+        openset = [start] 
+        # Distance from start along optimal path.
+        g_score = {start: 0} 
+        h_score = {start: heurDist(start, goal)}
+        # Estimated total distance from start to goal through y.
+        f_score = {start: h_score[start]} 
+        came_from = {}
+
+        while openset:
+            # x = the node in openset having the lowest f_score[] value
+            x, x_f = None, sys.maxint
+            for node in openset:
+                if f_score[node] < x_f:
+                    x = node
+                    x_f = f_score[node]
+            if not x:
+                # no available destination with less than sys.maxint cost, which
+                # is our effective infinity
+                raise NoAStarPathError()
+
+            if x == goal:
+                return self.__reconstructPath(goal, came_from)
+
+            openset.remove(x)
+            closedset.add(x)
+
+            for y in neighborFunc(x):
+                if not self.pointIsInBounds(y):
+                    continue
+                if y in closedset:
+                    continue
+
+                tentative_g_score = g_score[x] + neighborDist(x,y)
+ 
+                if y not in openset:
+                    openset.append(y)
+                    tentative_is_better = True
+                elif tentative_g_score < g_score[y]:
+                    tentative_is_better = True
+                else:
+                    tentative_is_better = False
+                if tentative_is_better:
+                    came_from[y] = x
+                    g_score[y] = tentative_g_score
+                    h_score[y] = heurDist(y, goal)
+                    f_score[y] = g_score[y] + h_score[y]
+
+        raise NoAStarPathError()
+ 
+        
 
 #==============================================================================
 
