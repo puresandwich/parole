@@ -2090,9 +2090,12 @@ class TemplateGenerator(Generator):
                 elif templateChar in self.legend:
                     generator = self.legend[templateChar]
                     if generator:
-                        if self.clearFirst:
-                            map[x,y].clear()
-                        generator.apply(map, pygame.Rect((x, y), (1, 1)))
+                        if type(generator) not in (tuple, list):
+                            generator = [generator]
+                        for g in generator:
+                            if self.clearFirst:
+                                map[x,y].clear()
+                            g.apply(map, pygame.Rect((x, y), (1, 1)))
                 else:
                     parole.warn("Unknown template character %s.",
                         repr(templateChar))
