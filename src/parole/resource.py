@@ -394,14 +394,23 @@ def getFont(name, size):
         parole.error('"%s" names an empty font resource.', name)
         return None
 
+    parole.debug('Got font bytes. (len=%d)', len(bytes))
     font = None
 
     # Create a file-like object which pygame can use to read the bytes of
     # the font file
-    fontf = cStringIO.StringIO(bytes)
+    # pygame 1.9.1release segfaults when reading a font from cStringIO
+    #fontf = cStringIO.StringIO(bytes)
+    # Workaround:
+    import tempfile
+    tmpf = tempfile.NamedTemporaryFile(delete=False)
+    tmpf.write(bytes)
+    tmpf.close()
+    fontf = tmpf.name
 
     # Attempt to load the font
     try:
+        parole.debug('Parsing font bytes...');
         font = pygame.font.Font(fontf, size)
     except Exception, e:
         parole.error('Unable to load font "%s" %pt: %s', name, size, e)
@@ -411,6 +420,7 @@ def getFont(name, size):
     # Store the font object in the resource table, rather
     # than the actual bytes of the font file
     __resTable[(name,size)] = font
+    parole.debug('Font "%s" loaded.', name)
     return font
     
 #==============================================================================
@@ -505,7 +515,7 @@ def getObject(scriptName, objName):
     @param scriptName:
     Should name a resource that is a python 
     script. The script should, upon execution, create a global (to itself) 
-    object object with the name C{objName}.
+    object with the name C{objName}.
     @type scriptName: C{str}
 
     @param objName:
@@ -608,4 +618,5 @@ def exportResource(name, destination):
                      ' "%s": %s', name, destination, e)
     if destf:
         destf.close()
+
 
