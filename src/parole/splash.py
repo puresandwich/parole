@@ -1,5 +1,5 @@
 #Parole Advanced Roguelike Engine
-#Copyright (C) 2006-2009 Max Bane
+#Copyright (C) 2006-2012 Max Bane
 #
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License
@@ -49,7 +49,7 @@ class SplashShader(shader.Shader):
 
         # Copyright
         gray = (108,108,108)
-        copyright = "Engine copyright 2009 by Max Bane"
+        copyright = "Engine copyright 2012 by Max Bane"
         copyrightSize = font.size(copyright)
         copyrightPass = shader.TextBlockPass(font, gray,
                 text=copyright)

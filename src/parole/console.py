@@ -1,5 +1,5 @@
 #Parole Advanced Roguelike Engine
-#Copyright (C) 200-2009 Max Bane
+#Copyright (C) 200-2012 Max Bane
 #
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License

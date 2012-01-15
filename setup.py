@@ -13,10 +13,9 @@ setup(
         description="The Python Advanced Roguelike Engine",
         long_description=\
 """
-Parole is the Python Advanced Roguelike Engine, a
-framework in Python 2.5 for use with PyGame to
-create graphical, discrete-event, agent-based
-simulations in the Roguelike genre.
+Parole is the Python Advanced Roguelike Engine, a framework in Python 2.5-2.7
+for use with PyGame to create graphical, discrete-event, agent-based simulations
+in the Roguelike genre.
 """,
 
         install_requires = ['pygame>=1.8'],
