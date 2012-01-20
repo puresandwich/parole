@@ -1411,14 +1411,17 @@ class TextBlockPass(Pass):
                 return self.font.render(text, self.antialias, self.fore_rgb)
 
         def fontSize(self, text):
+            #parole.debug('renderState.fontSize...')
             sz = self.font.size(text)
-            #parole.debug('renderState.fontSize(): %s', sz)
+            #parole.debug('renderState.fontSize(%r): %s', text, sz)
             return sz
 
         def fontLineSize(self):
             return self.font.get_linesize()
 
     def __breakSpan(self, span, xpos, renderState, wrapWidth):
+        #parole.debug('__breakSpan(%r, %r, %r, %r)', span, xpos, renderState,
+        #        wrapWidth)
         if self.wrap is None or self.wrap == 'no' or not self.wrap_width:
             return [span]
 
@@ -1468,6 +1471,8 @@ class TextBlockPass(Pass):
                 for char in reversed(list(u)):
                     units.insert(idx, char)
 
+            #parole.debug('units to break: %r', units)
+            brokeSpan = False
             for idx, u in enumerate(units):
                 #parole.debug('subspan = %r', subspan)
                 #parole.debug('f')
@@ -1481,6 +1486,7 @@ class TextBlockPass(Pass):
                     span = span[len(subspan):]#.strip()
                     while span[0] == ' ':
                         span = span[1:]
+                    brokeSpan = True
                     break
                 if wrapType == 'word':
                     #parole.debug('f3')
@@ -1493,11 +1499,20 @@ class TextBlockPass(Pass):
             #parole.debug('g')
             #parole.debug('subspan = %r, span = %r', subspan, span)
             #assert(span.strip() != subspan)
-            wrapped_LF.append(span)
+            if brokeSpan:
+                # span is now everything to the right of the break, needs to be
+                # tacked on for possible next pass
+                wrapped_LF.append(span)
+            else:
+                # we didn't actually need to break anything (possibly because of
+                # collapsing multiple adjacent spaces). subspan contains
+                # everything and fits within the width, so use it.
+                wrapped_LF.append(subspan)
 
         return wrapped_LF
 
     def __renderSpans(self, text_LF):
+        #parole.debug('__renderSpans: %r', text_LF)
         renderedSpans = [] # list of ((x, y), surface) tuples
 
         # Initial positions and sizes
@@ -1629,7 +1644,7 @@ class TextBlockPass(Pass):
             return '<%s>' % ', '.join([str(x) for x in self.LF])
 
     def __renderChunks(self, text_LF):
-        #parole.debug('renderChunks')
+        #parole.debug('renderChunks: %r', text_LF)
         # self.chunks tracks our text chunks. 
         # Every chunk must end with a newline if another chunk follows it.
         

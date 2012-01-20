@@ -270,7 +270,7 @@ requested and intitialized on engine startup.
 """
 
 def startup(configFile, updateFunc, caption='Parole', icon=None,
-        modules=allModules, gen=False):
+        modules=allModules, gen=False, tryPsyco=True):
     """
     Starts continuous execution of the Parole engine. 
     
@@ -331,12 +331,15 @@ def startup(configFile, updateFunc, caption='Parole', icon=None,
         return
 
     # Try to start psyco
-    try:
-        import psyco
-        psyco.full()
-        info('Psyco initialized.')
-    except:
-        info('Psyco unavailable.')
+    if tryPsyco:
+        try:
+            import psyco
+            psyco.full()
+            info('Psyco initialized.')
+        except:
+            info('Psyco unavailable.')
+    else:
+        info('Not attempting to use Psyco.')
 
     info('Requested modules: %s', ', '.join(modules))
     # Notify user of any strangeness in requested modules
