@@ -232,12 +232,12 @@ class Tile(shader.Shader):
         self.lightIntensity = 0.0
         self.__frozenShader = None
                 
-#    def __hash__(self):
-#        """
-#        C{Tile} objects hash as C{Shader}s (not as C{set}s).
-#        """
-#        # We need to hash as a shader, not as a set
-#        return shader.Shader.__hash__(self)
+    #def __hash__(self):
+    #    """
+    #    C{Tile} objects hash as C{Shader}s (not as C{set}s).
+    #    """
+    #    # We need to hash as a shader, not as a set
+    #    return shader.Shader.__hash__(self)
 
     #def update(self, *args, **kwargs):
     #    if self.__overlayShader.size != self.size:
@@ -821,6 +821,29 @@ class Map2D(object):
         #parole.debug('fieldOfView: time = %sms', parole.time() - time)
 
     def monitorNearby(self, obj, dist, callback, condition=None):
+        """
+        Registers a callback functor to be called whenever any L{MapObject} is
+        added to or removed from a L{Tile} within C{dist} distance of the given
+        L{Tile} or L{MapObject} contained by this L{Map2D} (and if the optional,
+        boolean-valued C{condition(obj)} is C{True}).
+
+        @param obj: A L{Tile} or L{MapObject} contained by this map.
+
+        @param dist: The numeric distance within which to trigger the callback
+        for changing the contents of a L{Tile}.
+
+        @param callback: The callback functor to be called. Must accept two
+        positional arguments: the C{obj} instance being monitored, and the
+        location (C{(col,row)}-C{tuple}) of the L{Tile} whose contents have
+        changed.  If you ever want to pickle this L{Map2D} instance, C{callback}
+        must be picklable.
+
+        @param condition: an optional functor accepting the monitored C{obj}
+        instance as its only parameter and returning C{False} iff the callback
+        should not be invoked at this time, regardless of whether any nearby
+        tiles' contents have changed.  If you ever want to pickle this L{Map2D}
+        instance, C{condition} must be picklable.
+        """
         # TODO: let user specify callback as an object and the name of a method
         # to bind.
         # User had better make sure callback and condition are pickleable
@@ -933,9 +956,21 @@ class Map2D(object):
         return self.traceLOS(p1, p2, None) is destT
 
     def defaultAStarHeuristicDistance(self, pos1, pos2):
+        """
+        Default heuristic distance function for the A* path algorithm as
+        implemented by L{getAStarPath}. Returns the Euclidean distance between
+        C{(col,row)}-tuples C{pos1} and C{pos2}, as computed by L{Map2D.dist}.
+        """
         return self.dist(pos1, pos2) 
 
     def defaultAStarNeighborDistance(self, pos1, pos2):
+        """
+        Default function for determining the actual distance/cost/penalty
+        of the sequence C{pos1 -> pos2} for two neighboring C{(col,row)}-tuples
+        in a path, for use with L{getAStarPath}. If the L{Tile} at C{pos2}
+        contains a move blocker (L{Tile.hasMoveBlocker}), returns C{sys.maxint};
+        otherwise returns the Euclidean distance between C{pos1} and C{pos2}.
+        """
         if self[pos2].hasMoveBlocker():
             return sys.maxint
         return self.dist(pos1, pos2) 
@@ -949,6 +984,12 @@ class Map2D(object):
 
     def getAStarPath(self, start, goal, heurDist=None, neighborDist=None,
             neighborFunc=None):
+        """
+        Constructs and returns a list of C{(col,row)}-tuples describing the
+        shortest path from the given C{start} position to the given C{goal}
+        position according to the A* heuristic shortest path algorithm. If no
+        path is possible, raises L{NoAStarPathError}.
+        """
         # default parameters
         heurDist = heurDist or self.defaultAStarHeuristicDistance
         neighborDist = neighborDist or self.defaultAStarNeighborDistance
@@ -1006,8 +1047,6 @@ class Map2D(object):
 
         raise NoAStarPathError()
  
-        
-
 #==============================================================================
 
 class LightSource(object):
